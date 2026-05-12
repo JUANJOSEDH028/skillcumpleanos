@@ -39,22 +39,13 @@ function buildGenerateImagesConfig(model: string): {
   outputMimeType: string;
   includeRaiReason: boolean;
   imageSize?: "1K" | "2K";
-  negativePrompt?: string;
 } {
   const id = model.toLowerCase();
-  const negativePrompt =
-    "multiple cards in one image, collage, grid of thumbnails, contact sheet, storyboard, " +
-    "comparison layout, split panels, mosaic of designs, watermark, QR code, " +
-    "gibberish text, misspelled words, fake English, lorem ipsum, tiny unreadable text, " +
-    "distorted curved text, neon glow on small letters, decorative script for names, " +
-    "calendar widgets, placeholder headshots, stock photo faces";
-
   const base = {
     numberOfImages: 1,
     aspectRatio: "9:16" as const,
     outputMimeType: "image/png",
     includeRaiReason: true,
-    negativePrompt,
   };
   if (id.includes("fast")) {
     return base;
