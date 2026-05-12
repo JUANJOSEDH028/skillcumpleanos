@@ -38,7 +38,19 @@ export function parseFechaNacimiento(value: unknown): Date | null {
   if (value == null || value === "") return null;
 
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    // Excel / xlsx suele dar medianoche UTC (ej. 12-may 00:00Z). En Colombia (UTC-5)
+    // getDate() local puede ser 11-may y se pierde el cumpleaños. Si calendario local
+    // y UTC difieren en día civil, usamos el día en **UTC** como fecha de nacimiento.
+    const ly = value.getFullYear();
+    const lm = value.getMonth();
+    const ld = value.getDate();
+    const uy = value.getUTCFullYear();
+    const um = value.getUTCMonth();
+    const ud = value.getUTCDate();
+    if (ly === uy && lm === um && ld === ud) {
+      return new Date(ly, lm, ld);
+    }
+    return new Date(uy, um, ud);
   }
 
   if (typeof value === "number" && Number.isFinite(value)) {
