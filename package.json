@@ -26,6 +26,10 @@
     "gemini"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JUANJOSEDH028/skillcumpleanos.git"
+  },
   "dependencies": {
     "@google/genai": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
