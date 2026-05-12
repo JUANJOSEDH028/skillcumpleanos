@@ -22,7 +22,8 @@ Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumple
   "command": "npx",
   "args": ["-y", "github:JUANJOSEDH028/skillcumpleanos"],
   "env": {
-    "GEMINI_API_KEY": "PEGA_AQUI_TU_API_KEY"
+    "GEMINI_API_KEY": "PEGA_AQUI_TU_API_KEY",
+    "CUMPLEANOS_TZ": "America/Bogota"
   }
 }
 ```
@@ -40,7 +41,8 @@ Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumple
       "command": "npx",
       "args": ["-y", "github:JUANJOSEDH028/skillcumpleanos"],
       "env": {
-        "GEMINI_API_KEY": "PEGA_AQUI_TU_API_KEY"
+        "GEMINI_API_KEY": "PEGA_AQUI_TU_API_KEY",
+        "CUMPLEANOS_TZ": "America/Bogota"
       }
     }
   }
@@ -74,6 +76,7 @@ Para otra carpeta base, define la variable de entorno `CUMPLEANOS_ROOT` en el mi
 |----------|-------------|-------------|
 | `GEMINI_API_KEY` | Sí | API key de Google AI / Gemini |
 | `CUMPLEANOS_ROOT` | No | Carpeta base en lugar del home del usuario |
+| `CUMPLEANOS_TZ` | No | Zona IANA para “hoy” y comparación de cumpleaños. Por defecto **`America/Bogota`** (UTC-5, Bogotá/Lima). Ejemplo alternativo: `America/Lima` |
 | `GEMINI_IMAGE_MODEL` | No | Si no la defines, prueba en orden: `imagen-4.0-generate-001`, `imagen-4.0-fast-generate-001`, `imagen-4.0-ultra-generate-001`, luego modelos Imagen 3 si existen. Con esta variable fuerzas uno solo (el que liste tu cuenta en [AI Studio](https://aistudio.google.com/)) |
 
 ## Desarrollo local
