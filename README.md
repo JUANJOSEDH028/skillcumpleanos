@@ -1,6 +1,6 @@
 # skillcumpleanos
 
-Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumpleañeros del día y genera una **tarjeta PNG vertical** (proporción 9:16, calidad alta vía API Imagen) con Gemini. La frase motivacional la escribe Claude en el chat (no hace falta otra API key).
+Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumpleañeros del día y genera una **tarjeta PNG vertical** (Imagen / Gemini). El prompt prioriza **texto legible**; los modelos de difusión a veces alucinan letras: si hace falta calidad de tipografía perfecta, conviene post-proceso (Canva/PowerPoint) con la misma imagen de fondo.
 
 ## Requisitos
 

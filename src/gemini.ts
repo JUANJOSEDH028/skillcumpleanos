@@ -39,13 +39,22 @@ function buildGenerateImagesConfig(model: string): {
   outputMimeType: string;
   includeRaiReason: boolean;
   imageSize?: "1K" | "2K";
+  negativePrompt?: string;
 } {
   const id = model.toLowerCase();
+  const negativePrompt =
+    "multiple cards in one image, collage, grid of thumbnails, contact sheet, storyboard, " +
+    "comparison layout, split panels, mosaic of designs, watermark, QR code, " +
+    "gibberish text, misspelled words, fake English, lorem ipsum, tiny unreadable text, " +
+    "distorted curved text, neon glow on small letters, decorative script for names, " +
+    "calendar widgets, placeholder headshots, stock photo faces";
+
   const base = {
     numberOfImages: 1,
     aspectRatio: "9:16" as const,
     outputMimeType: "image/png",
     includeRaiReason: true,
+    negativePrompt,
   };
   if (id.includes("fast")) {
     return base;
@@ -63,7 +72,6 @@ function buildImagePrompt(opts: {
 }): string {
   const todayLabel = formatTodaySpanish(opts.today);
   const grupoFecha = formatDayMonthSpanish(opts.today);
-  const listaGrupo = opts.people.map((p) => `- ${p.nombre} — ${p.cargo}`).join("\n");
   const ejecucionId = Date.now();
   const estiloIdx =
     (ejecucionId + opts.people.length * 17 + opts.fraseMotivacional.length * 31) %
@@ -71,94 +79,39 @@ function buildImagePrompt(opts: {
   const direccionCreativa = ESTILOS_CREATIVOS[estiloIdx]!;
   const fraseEsc = opts.fraseMotivacional.replace(/"/g, "'").trim();
 
-  return `Crea una tarjeta corporativa premium de cumpleaños con diseño dinámico y adaptable.
+  const listaLiteral = opts.people
+    .map((p, i) => `${i + 1}. ${p.nombre} — ${p.cargo}`)
+    .join("\n");
 
-⚠️ IMPORTANTE:
-La tarjeta debe cambiar visualmente en cada ejecución.
-NO reutilizar la misma composición, distribución, colores, fondos ni decoración.
-Cada diseño debe tener una dirección creativa diferente manteniendo estética profesional, moderna y elegante.
+  return `IMAGEN ÚNICA (obligatorio):
+Genera exactamente UNA sola tarjeta vertical de cumpleaños. Un solo lienzo. NO collage, NO mosaico, NO cuadrícula de varias tarjetas, NO plantillas múltiples, NO storyboard, NO hoja de contacto.
 
-CONTEXTO_DE_VARIACIÓN (único para esta generación, ejecución ${ejecucionId}):
-Dirección creativa preferente OBLIGATORIA para ESTA imagen: "${direccionCreativa}".
-Interpreta ese estilo de forma clara y distinta a cualquier tarjeta genérica o repetida.
+PRIORIDAD ABSOLUTA — TEXTO LEGIBLE:
+Los modelos de imagen fallan con texto pequeño o decorativo. Debes:
+- Copiar los nombres y cargos CARÁCTER POR CARÁCTER como en la lista "TEXTO LITERAL" de abajo (mismas mayúsculas/minúsculas y tildes).
+- Usar tipografía sans-serif MUY GRANDE para nombres y cargos (bloque central o inferior), alto contraste (ej. texto oscuro sobre fondo claro suave, o texto claro sobre banda oscura sólida).
+- Sin texto curvo, sin neón sobre letras, sin tipografía script para datos, sin texto sobre patrones recargados.
+- Título "¡Feliz Cumpleaños!" grande y claro. La frase motivacional en una o dos líneas, misma fuente simple y grande.
+- Máximo 2–3 líneas por persona (nombre y cargo). Si hay muchas personas, lista vertical ordenada, no microtexto.
 
-OBJETIVO:
-Generar una tarjeta institucional de cumpleaños donde los empleados estén agrupados correctamente según su fecha de cumpleaños.
+ESTILO (ejecución ${ejecucionId}, variar fondo y color pero sin sacrificar lectura):
+Dirección creativa del fondo y decoración: "${direccionCreativa}".
+La decoración festiva (confeti, luces, formas) solo en bordes o zonas SIN texto encima. El área del texto debe ser plana y limpia.
 
-La tarjeta puede contener:
-- Una sola persona
-- Varias personas en la misma fecha
-- Varias fechas diferentes en una misma tarjeta (en este archivo, hoy todos comparten la misma fecha de cumpleaños; agrúpalos en un solo bloque claro)
+CONTENIDO OBLIGATORIO:
+- Fecha del día (español): ${todayLabel}
+- Grupo del día: ${grupoFecha}
 
-La IA debe organizar automáticamente la información de forma limpia, elegante y fácil de leer.
+TEXTO LITERAL (copiar exactamente en la imagen, sin inventar ni traducir):
+${listaLiteral}
 
-REGLAS DE AGRUPACIÓN:
-Agrupar los empleados por fecha de cumpleaños y mostrar cada grupo claramente separado.
-
-ADAPTACIÓN AUTOMÁTICA DEL DISEÑO:
-La composición debe adaptarse automáticamente según:
-- Cantidad de fechas
-- Cantidad de personas por fecha
-- Longitud de nombres
-- Cantidad de texto
-
-Si hay muchas personas:
-- usar diseño tipo grid elegante
-- tarjetas internas
-- columnas balanceadas
-- excelente aprovechamiento del espacio
-
-Si hay pocas personas:
-- usar diseño más visual y protagonista
-
-VARIACIÓN CREATIVA OBLIGATORIA:
-Cambiar dinámicamente:
-- Paleta de colores
-- Tipografía
-- Fondos
-- Estilo gráfico
-- Decoración
-- Distribución
-- Elementos festivos
-- Iluminación
-- Estética visual
-
-Variar entre estilos (elige uno principal coherente con la dirección asignada arriba, sin mezclar caos):
-- Luxury corporate, Modern corporate, Futurista tecnológico, Minimalista elegante, Dark premium, Glassmorphism, Abstracto ejecutivo, Neón elegante, 3D corporativo, Diseño creativo empresarial
-
-ELEMENTOS VISUALES FESTIVOS:
-Usar de forma aleatoria y elegante (no todos a la vez; selecciona un conjunto coherente con el estilo):
-- Globos, confeti, luces, regalos, pasteles, chispas, elementos abstractos, formas geométricas, decoraciones tecnológicas, detalles metálicos, iluminación cinematográfica
-
-TEXTO PRINCIPAL:
-Título muy legible en español:
-"¡Feliz Cumpleaños!"
-
-Subtítulo opcional (puede ir discreto):
-"Celebramos este día especial junto a nuestro equipo"
-
-Mostrar también la fecha de referencia del día (texto en español): ${todayLabel}
-
-FRASE MOTIVACIONAL (solo esta, corta y elegante; tema: crecimiento, éxito, liderazgo, felicidad, trabajo en equipo o nuevos comienzos):
+FRASE MOTIVACIONAL (una sola, copiar exactamente):
 "${fraseEsc}"
 
-CALIDAD VISUAL:
-- Tarjeta institucional premium, corporativa moderna, composición profesional
-- Excelente legibilidad, elegante y emotiva, ultra detallada
-- Iluminación cinematográfica, acabado de alta calidad
+FORMATO:
+Tarjeta vertical 9:16, diseño corporativo limpio y profesional, buena iluminación, nitidez en el texto.
 
-FORMATO Y SALIDA:
-Formato vertical (retrato), proporción 9:16, máxima nitidez y detalle que permita el modelo, premium corporate birthday card, modern typography, elegant celebration design, ultra detailed, realistic lighting.
-
-⚠️ MUY IMPORTANTE:
-Usa una dirección creativa completamente diferente en cada ejecución; esta ejecución está anclada al estilo "${direccionCreativa}".
-
-INFORMACIÓN DE CUMPLEAÑOS (obligatorio en el diseño, agrupada por fecha):
-
-${grupoFecha}
-${listaGrupo}
-
-No incluyas marcas de terceros ni logos ajenos. Texto en español.`;
+NO incluir logos de terceros. Solo español en los textos visibles.`;
 }
 
 export async function generateBirthdayCardImage(opts: {
