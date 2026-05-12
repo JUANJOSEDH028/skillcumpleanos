@@ -77,7 +77,10 @@ export async function readCumpleanerosHoy(
 
   let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.readFile(abs, { cellDates: true, raw: false });
+    // `readFile` del paquete xlsx no está expuesto en todos los bundles ESM;
+    // leer el buffer con Node y usar `read` es compatible en Cursor/npx.
+    const buf = await fs.readFile(abs);
+    workbook = XLSX.read(buf, { type: "buffer", cellDates: true, raw: false });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `No se pudo leer el archivo Excel: ${msg}` };
