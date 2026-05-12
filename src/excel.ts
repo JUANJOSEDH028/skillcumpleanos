@@ -7,7 +7,18 @@ export interface Cumpleanero {
   cargo: string;
 }
 
-const REQUIRED = ["nombre", "fecha_nacimiento", "cargo"] as const;
+/** Tras normalizar a minúsculas: nombres de columna aceptados (plan original + camelCase típico). */
+function validateColumnas(sample: Record<string, unknown>): string | null {
+  const hasNombre = "nombre" in sample || "nombrecompleto" in sample;
+  const hasFecha = "fecha_nacimiento" in sample || "fechanacimiento" in sample;
+  const hasCargo = "cargo" in sample || "nombrecargo" in sample;
+  if (hasNombre && hasFecha && hasCargo) return null;
+  const missing: string[] = [];
+  if (!hasNombre) missing.push("nombre o nombreCompleto");
+  if (!hasFecha) missing.push("fecha_nacimiento o fechaNacimiento");
+  if (!hasCargo) missing.push("cargo o nombreCargo");
+  return `Faltan columnas obligatorias: ${missing.join("; ")}.`;
+}
 
 function normalizeRowKeys(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -48,6 +59,18 @@ export function parseFechaNacimiento(value: unknown): Date | null {
   }
 
   return null;
+}
+
+function getNombre(row: Record<string, unknown>): string {
+  return String(row.nombre ?? row.nombrecompleto ?? "").trim();
+}
+
+function getFechaCell(row: Record<string, unknown>): unknown {
+  return row.fecha_nacimiento ?? row.fechanacimiento;
+}
+
+function getCargo(row: Record<string, unknown>): string {
+  return String(row.cargo ?? row.nombrecargo ?? "").trim();
 }
 
 function sameMonthDay(a: Date, b: Date): boolean {
@@ -102,11 +125,11 @@ export async function readCumpleanerosHoy(
   }
 
   const sample = normalizeRowKeys(rows[0]!);
-  const missing = REQUIRED.filter((col) => !(col in sample));
-  if (missing.length > 0) {
+  const columnasError = validateColumnas(sample);
+  if (columnasError) {
     return {
       ok: false,
-      error: `Faltan columnas obligatorias en el Excel: ${missing.join(", ")}. Se esperan: ${REQUIRED.join(", ")}.`,
+      error: `${columnasError} También se aceptan los nombres en snake_case: nombre, fecha_nacimiento, cargo.`,
     };
   }
 
@@ -114,11 +137,12 @@ export async function readCumpleanerosHoy(
 
   for (const rawRow of rows) {
     const row = normalizeRowKeys(rawRow);
-    const nombre = String(row.nombre ?? "").trim();
-    const cargo = String(row.cargo ?? "").trim();
-    const birth = parseFechaNacimiento(row.fecha_nacimiento);
+    const nombre = getNombre(row);
+    const cargo = getCargo(row);
+    const fechaCell = getFechaCell(row);
+    const birth = parseFechaNacimiento(fechaCell);
 
-    if (!nombre && !cargo && row.fecha_nacimiento === "") continue;
+    if (!nombre && !cargo && (fechaCell === "" || fechaCell == null)) continue;
 
     if (!nombre) continue;
 

@@ -19,7 +19,7 @@ server.registerTool(
   "obtener_cumpleaneros_hoy",
   {
     description:
-      "Lee un Excel (.xlsx) con columnas nombre, fecha_nacimiento (DD/MM/YYYY), cargo y devuelve los cumpleañeros del día (mes y día iguales a hoy) y la última frase guardada para evitar repetición.",
+      "Lee un Excel (.xlsx) con columnas de persona y nacimiento. Acepta: nombre / nombreCompleto, fecha_nacimiento / fechaNacimiento (DD/MM/YYYY o fecha Excel), cargo / nombreCargo. Devuelve cumpleañeros del día y la última frase guardada.",
     inputSchema: {
       archivo: z
         .string()

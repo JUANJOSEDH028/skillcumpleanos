@@ -49,13 +49,17 @@ Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumple
 
 ## Excel esperado
 
-Primera hoja, con encabezados (pueden tener mayúsculas/espacios):
+Primera hoja. Puedes usar **cualquiera** de estos conjuntos de encabezados (mayúsculas/espacios se ignoran en el nombre de la columna al comparar):
 
-| nombre | fecha_nacimiento | cargo |
-|--------|------------------|-------|
+**Opción A (snake_case):** `nombre`, `fecha_nacimiento`, `cargo`
+
+**Opción B (camelCase):** `nombreCompleto`, `fechaNacimiento`, `nombreCargo`
+
+| nombreCompleto | fechaNacimiento | nombreCargo |
+|----------------|-----------------|---------------|
 | Ana Pérez | 12/05/1990 | Desarrollo |
 
-- `fecha_nacimiento`: texto `DD/MM/YYYY` o celda de fecha de Excel.
+- Fecha: texto `DD/MM/YYYY` o celda de fecha de Excel.
 - Se comparan **día y mes** con la fecha local del equipo.
 
 ## Dónde se guardan las imágenes
@@ -70,7 +74,7 @@ Para otra carpeta base, define la variable de entorno `CUMPLEANOS_ROOT` en el mi
 |----------|-------------|-------------|
 | `GEMINI_API_KEY` | Sí | API key de Google AI / Gemini |
 | `CUMPLEANOS_ROOT` | No | Carpeta base en lugar del home del usuario |
-| `GEMINI_IMAGE_MODEL` | No | Por defecto `imagen-3.0-generate-002`; puedes probar `imagen-4.0-generate-001` si tu proyecto tiene acceso |
+| `GEMINI_IMAGE_MODEL` | No | Si no la defines, el servidor prueba en orden: `imagen-4.0-generate-001`, `imagen-3.0-generate-002`, `imagen-3.0-generate-001`. Con esta variable fuerzas un solo modelo (el que tenga habilitado tu cuenta en [AI Studio](https://aistudio.google.com/)) |
 
 ## Desarrollo local
 
