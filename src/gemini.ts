@@ -2,13 +2,11 @@ import { GoogleGenAI } from "@google/genai";
 import type { Cumpleanero } from "./excel.js";
 import { formatDayMonthSpanish, formatTodaySpanish } from "./paths.js";
 
-/** Orden de prueba si no defines GEMINI_IMAGE_MODEL (muchas keys solo tienen Imagen 4). */
+/** Modelos Imagen 4 probados en orden (Imagen 3 suele no estar en AI Studio v1beta). */
 const DEFAULT_IMAGE_MODELS = [
   "imagen-4.0-generate-001",
   "imagen-4.0-fast-generate-001",
   "imagen-4.0-ultra-generate-001",
-  "imagen-3.0-generate-002",
-  "imagen-3.0-generate-001",
 ] as const;
 
 const ESTILOS_CREATIVOS = [
@@ -29,6 +27,33 @@ function imageModelCandidates(): string[] {
   const rest = DEFAULT_IMAGE_MODELS.filter((m) => m !== env);
   const ordered = env ? [env, ...rest] : [...DEFAULT_IMAGE_MODELS];
   return [...new Set(ordered)];
+}
+
+/**
+ * Imagen 4 generate/ultra: solo `imageSize` 1K o 2K (no 4K).
+ * Imagen 4 fast: no enviar `imageSize` (API: "not adjustable").
+ */
+function buildGenerateImagesConfig(model: string): {
+  numberOfImages: number;
+  aspectRatio: "9:16";
+  outputMimeType: string;
+  includeRaiReason: boolean;
+  imageSize?: "1K" | "2K";
+} {
+  const id = model.toLowerCase();
+  const base = {
+    numberOfImages: 1,
+    aspectRatio: "9:16" as const,
+    outputMimeType: "image/png",
+    includeRaiReason: true,
+  };
+  if (id.includes("fast")) {
+    return base;
+  }
+  const envSize = process.env.GEMINI_IMAGE_SIZE?.trim();
+  const imageSize: "1K" | "2K" =
+    envSize === "1K" || envSize === "2K" ? envSize : "2K";
+  return { ...base, imageSize };
 }
 
 function buildImagePrompt(opts: {
@@ -123,7 +148,7 @@ CALIDAD VISUAL:
 - Iluminación cinematográfica, acabado de alta calidad
 
 FORMATO Y SALIDA:
-Formato vertical (retrato), aspecto 9:16, apariencia 4K, premium corporate birthday card, modern typography, elegant celebration design, ultra detailed, realistic lighting.
+Formato vertical (retrato), proporción 9:16, máxima nitidez y detalle que permita el modelo, premium corporate birthday card, modern typography, elegant celebration design, ultra detailed, realistic lighting.
 
 ⚠️ MUY IMPORTANTE:
 Usa una dirección creativa completamente diferente en cada ejecución; esta ejecución está anclada al estilo "${direccionCreativa}".
@@ -154,17 +179,10 @@ export async function generateBirthdayCardImage(opts: {
   const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
   const candidates = imageModelCandidates();
 
-  const config = {
-    numberOfImages: 1,
-    aspectRatio: "9:16" as const,
-    outputMimeType: "image/png",
-    imageSize: "4K" as const,
-    includeRaiReason: true,
-  };
-
   const errors: string[] = [];
 
   for (const model of candidates) {
+    const config = buildGenerateImagesConfig(model);
     try {
       const response = await ai.models.generateImages({
         model,

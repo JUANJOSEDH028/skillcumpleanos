@@ -77,7 +77,8 @@ Para otra carpeta base, define la variable de entorno `CUMPLEANOS_ROOT` en el mi
 | `GEMINI_API_KEY` | Sí | API key de Google AI / Gemini |
 | `CUMPLEANOS_ROOT` | No | Carpeta base en lugar del home del usuario |
 | `CUMPLEANOS_TZ` | No | Zona IANA para “hoy” y comparación de cumpleaños. Por defecto **`America/Bogota`** (UTC-5, Bogotá/Lima). Ejemplo alternativo: `America/Lima` |
-| `GEMINI_IMAGE_MODEL` | No | Si no la defines, prueba en orden: `imagen-4.0-generate-001`, `imagen-4.0-fast-generate-001`, `imagen-4.0-ultra-generate-001`, luego modelos Imagen 3 si existen. Con esta variable fuerzas uno solo (el que liste tu cuenta en [AI Studio](https://aistudio.google.com/)) |
+| `GEMINI_IMAGE_MODEL` | No | Por defecto prueba: `imagen-4.0-generate-001`, `imagen-4.0-fast-generate-001`, `imagen-4.0-ultra-generate-001`. Fuerza un modelo concreto si tu cuenta solo tiene uno habilitado |
+| `GEMINI_IMAGE_SIZE` | No | Solo **1K** o **2K** (requisito de Imagen 4 generate/ultra). Por defecto **2K**. El modelo **fast** ignora este parámetro (la API no permite ajustarlo) |
 
 ## Desarrollo local
 
