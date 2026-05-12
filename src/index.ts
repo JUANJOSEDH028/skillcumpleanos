@@ -52,7 +52,7 @@ server.registerTool(
                 diagnostico: {
                   ...result.stats,
                   ayuda:
-                    "Se compara solo día y mes con hoy. Fechas aceptadas: DD/MM/AAAA, DD-MM-AAAA, AAAA-MM-DD, DD/MM/AA, celda fecha Excel o ISO con hora. Si filasConFechaValida es 0, revisa el formato de fechaNacimiento o que la primera fila de datos no sea un título. Con celdas tipo fecha de Excel se contempla desfase UTC vs hora local.",
+                    "Se compara solo día y mes con hoy (ver referenciaHoy en el servidor). Si filasConFechaValida < filasConNombre, suele haber una fila con fecha vacía o ilegible. Si aparece filasOmitidasEncabezado > 0, había una fila repetida con los títulos de columnas. Fechas: DD/MM/AAAA, DD-MM-AAAA, AAAA-MM-DD, celda fecha Excel (también se contempla UTC).",
                 },
               },
               null,

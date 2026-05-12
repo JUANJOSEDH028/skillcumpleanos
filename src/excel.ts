@@ -116,6 +116,24 @@ function getCargo(row: Record<string, unknown>): string {
   return String(row.cargo ?? row.nombrecargo ?? "").trim();
 }
 
+/** Fila duplicada del encabezado: el nombre es literalmente el título de la columna */
+function esFilaEncabezadoRepetido(nombre: string): boolean {
+  const n = nombre.trim().toLowerCase().replace(/\s+/g, " ");
+  const compact = n.replace(/\s/g, "");
+  const falsos = new Set([
+    "nombrecompleto",
+    "nombre",
+    "nombre completo",
+    "fechanacimiento",
+    "fecha_nacimiento",
+    "fecha nacimiento",
+    "nombrecargo",
+    "nombre cargo",
+    "cargo",
+  ]);
+  return falsos.has(n) || falsos.has(compact);
+}
+
 /**
  * ¿El cumpleaños (mes/día) coincide con `today` en el calendario local del usuario?
  * Incluye comparación por **UTC** del nacimiento: Excel/xlsx suele entregar Date en medianoche UTC
@@ -133,6 +151,17 @@ export interface LecturaStats {
   filasLeidas: number;
   filasConNombre: number;
   filasConFechaValida: number;
+  /** Cuántas filas (con fecha válida) tienen el mismo mes/día que "hoy" en el servidor */
+  filasConMesDiaIgualHoy: number;
+  filasOmitidasEncabezado: number;
+  /** Con qué fecha/zona compara el proceso Node (el MCP corre en tu PC) */
+  referenciaHoy: {
+    dia: number;
+    mes: number;
+    anio: number;
+    zonaHoraria: string;
+    isoUtc: string;
+  };
 }
 
 export type ReadExcelResult =
@@ -194,6 +223,8 @@ export async function readCumpleanerosHoy(
   const cumpleaneros: Cumpleanero[] = [];
   let filasConNombre = 0;
   let filasConFechaValida = 0;
+  let filasConMesDiaIgualHoy = 0;
+  let filasOmitidasEncabezado = 0;
 
   for (const rawRow of rows) {
     const row = normalizeRowKeys(rawRow);
@@ -205,6 +236,12 @@ export async function readCumpleanerosHoy(
     if (!nombre && !cargo && (fechaCell === "" || fechaCell == null)) continue;
 
     if (!nombre) continue;
+
+    if (esFilaEncabezadoRepetido(nombre)) {
+      filasOmitidasEncabezado += 1;
+      continue;
+    }
+
     filasConNombre += 1;
 
     if (!birth) {
@@ -213,6 +250,7 @@ export async function readCumpleanerosHoy(
     filasConFechaValida += 1;
 
     if (sameMonthDay(birth, today)) {
+      filasConMesDiaIgualHoy += 1;
       cumpleaneros.push({ nombre, cargo: cargo || "—" });
     }
   }
@@ -221,6 +259,15 @@ export async function readCumpleanerosHoy(
     filasLeidas: rows.length,
     filasConNombre,
     filasConFechaValida,
+    filasConMesDiaIgualHoy,
+    filasOmitidasEncabezado,
+    referenciaHoy: {
+      dia: today.getDate(),
+      mes: today.getMonth() + 1,
+      anio: today.getFullYear(),
+      zonaHoraria: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      isoUtc: today.toISOString(),
+    },
   };
 
   return { ok: true, cumpleaneros, stats };
