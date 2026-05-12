@@ -23,7 +23,12 @@ function validateColumnas(sample: Record<string, unknown>): string | null {
 function normalizeRowKeys(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
-    out[String(k).trim().toLowerCase()] = v;
+    const key = String(k)
+      .trim()
+      .replace(/^\uFEFF/, "")
+      .replace(/\u200B/g, "")
+      .toLowerCase();
+    out[key] = v;
   }
   return out;
 }
@@ -111,8 +116,17 @@ function getCargo(row: Record<string, unknown>): string {
   return String(row.cargo ?? row.nombrecargo ?? "").trim();
 }
 
-function sameMonthDay(a: Date, b: Date): boolean {
-  return a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+/**
+ * ¿El cumpleaños (mes/día) coincide con `today` en el calendario local del usuario?
+ * Incluye comparación por **UTC** del nacimiento: Excel/xlsx suele entregar Date en medianoche UTC
+ * y en América eso se ve como el **día anterior** en hora local (ej. 12-may queda 11-may).
+ */
+function sameMonthDay(birth: Date, today: Date): boolean {
+  const tm = today.getMonth();
+  const td = today.getDate();
+  const localOk = birth.getMonth() === tm && birth.getDate() === td;
+  const utcOk = birth.getUTCMonth() === tm && birth.getUTCDate() === td;
+  return localOk || utcOk;
 }
 
 export interface LecturaStats {

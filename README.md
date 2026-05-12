@@ -59,7 +59,7 @@ Primera hoja. Puedes usar **cualquiera** de estos conjuntos de encabezados (may�
 |----------------|-----------------|---------------|
 | Ana Pérez | 12/05/1990 | Desarrollo |
 
-- Fecha: texto **`DD/MM/AAAA`** (día/mes), **`DD-MM-AAAA`**, **`AAAA-MM-DD`**, **`DD/MM/AA`**, celda tipo fecha en Excel, o ISO con hora (`AAAA-MM-DDTHH:mm...`). Si Excel muestra `12/5/1990 0:00:00`, también se entiende.
+- Fecha: texto **`DD/MM/AAAA`** (día/mes), **`DD-MM-AAAA`**, **`AAAA-MM-DD`**, **`DD/MM/AA`**, celda tipo fecha en Excel, o ISO con hora (`AAAA-MM-DDTHH:mm...`). Si Excel muestra `12/5/1990 0:00:00`, también se entiende. Las celdas **fecha** de Excel a veces vienen en UTC: el servidor compara también por día/mes en UTC para no perder el 12 de mayo (u otro día) por desfase horario.
 - Se comparan **día y mes** con la fecha local del equipo.
 
 ## Dónde se guardan las imágenes
