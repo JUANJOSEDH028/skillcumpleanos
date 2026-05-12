@@ -37,8 +37,18 @@ export function metaDir(): string {
   return path.join(getCumpleanosRoot(), ".meta");
 }
 
-/** Ruta de imagen del día: `cumpleanos/YYYY/mes/DD.png` bajo la raíz configurada */
-export function outputImagePath(date: Date = new Date()): {
+function extensionFromMime(mimeType: string): string {
+  const m = mimeType.toLowerCase();
+  if (m.includes("jpeg")) return "jpg";
+  if (m.includes("webp")) return "webp";
+  return "png";
+}
+
+/** Ruta de imagen del día: `cumpleanos/YYYY/mes/DD.<ext>` bajo la raíz configurada */
+export function outputImagePath(
+  date: Date = new Date(),
+  mimeType = "image/png",
+): {
   dir: string;
   file: string;
   fullPath: string;
@@ -47,7 +57,8 @@ export function outputImagePath(date: Date = new Date()): {
   const mes = MESES_ES[date.getMonth()];
   const dd = String(date.getDate()).padStart(2, "0");
   const dir = path.join(getCumpleanosRoot(), String(y), mes);
-  const file = `${dd}.png`;
+  const ext = extensionFromMime(mimeType);
+  const file = `${dd}.${ext}`;
   return { dir, file, fullPath: path.join(dir, file) };
 }
 

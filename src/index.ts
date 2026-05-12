@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod";
 import { readCumpleanerosHoy } from "./excel.js";
-import { generateBirthdayCardImage } from "./gemini.js";
+import { generateBirthdayCardImage } from "./openai-image.js";
 import { localDateKey, outputImagePath, formatTodaySpanish } from "./paths.js";
 import { readLastPhrase, writeLastPhrase } from "./phrase-store.js";
 
@@ -91,7 +91,7 @@ server.registerTool(
   "generar_tarjeta_cumpleanos",
   {
     description:
-      "Genera la imagen PNG de la tarjeta con Gemini, la guarda en la carpeta cumpleanos del usuario y devuelve la imagen para el chat.",
+      "Genera la imagen PNG de la tarjeta con OpenAI (DALL·E / imágenes), la guarda en la carpeta cumpleanos del usuario y devuelve la imagen para el chat.",
     inputSchema: {
       archivo: z.string().describe("Misma ruta .xlsx usada en obtener_cumpleaneros_hoy"),
       frase_motivacional: z
@@ -135,7 +135,7 @@ server.registerTool(
       };
     }
 
-    const { dir, fullPath } = outputImagePath(today);
+    const { dir, fullPath } = outputImagePath(today, image.mimeType);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(fullPath, Buffer.from(image.base64, "base64"));
 
