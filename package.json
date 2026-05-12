@@ -1,0 +1,40 @@
+{
+  "name": "skillcumpleanos",
+  "version": "1.0.0",
+  "description": "MCP: tarjeta de cumpleaños diaria desde Excel + Gemini",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "skillcumpleanos": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "start": "node dist/index.js",
+    "dev": "node --import tsx src/index.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "cumpleanos",
+    "gemini"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "xlsx": "^0.18.5",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

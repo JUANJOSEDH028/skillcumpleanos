@@ -1,0 +1,167 @@
+#!/usr/bin/env node
+import fs from "node:fs/promises";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import * as z from "zod";
+import { readCumpleanerosHoy } from "./excel.js";
+import { generateBirthdayCardImage } from "./gemini.js";
+import { localDateKey, outputImagePath, formatTodaySpanish } from "./paths.js";
+import { readLastPhrase, writeLastPhrase } from "./phrase-store.js";
+
+const INSTRUCTIONS = `Skill cumpleaños: primero usa la herramienta obtener_cumpleaneros_hoy con la ruta del Excel. Si hay cumpleañeros, escribe en español una frase motivacional breve (máximo dos líneas), positiva y distinta de la última frase indicada si aplica. Luego llama generar_tarjeta_cumpleanos con la misma ruta y la frase. Si no hay cumpleañeros, responde de forma amigable sin generar imagen.`;
+
+const server = new McpServer(
+  { name: "skillcumpleanos", version: "1.0.0" },
+  { instructions: INSTRUCTIONS },
+);
+
+server.registerTool(
+  "obtener_cumpleaneros_hoy",
+  {
+    description:
+      "Lee un Excel (.xlsx) con columnas nombre, fecha_nacimiento (DD/MM/YYYY), cargo y devuelve los cumpleañeros del día (mes y día iguales a hoy) y la última frase guardada para evitar repetición.",
+    inputSchema: {
+      archivo: z
+        .string()
+        .describe("Ruta al archivo .xlsx (absoluta o relativa al directorio de trabajo del servidor MCP)"),
+    },
+  },
+  async ({ archivo }) => {
+    const last = await readLastPhrase();
+    const result = await readCumpleanerosHoy(archivo);
+
+    if (!result.ok) {
+      return {
+        content: [{ type: "text", text: result.error }],
+        isError: true,
+      };
+    }
+
+    if (result.cumpleaneros.length === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                hayCumpleaneros: false,
+                mensaje: "No hay cumpleañeros hoy.",
+                fechaHoy: formatTodaySpanish(),
+                ultimaFrase: last?.frase ?? null,
+                ultimaFecha: last?.fecha ?? null,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              hayCumpleaneros: true,
+              fechaHoy: formatTodaySpanish(),
+              cumpleaneros: result.cumpleaneros,
+              ultimaFrase: last?.frase ?? null,
+              ultimaFecha: last?.fecha ?? null,
+              siguientePaso:
+                "Redacta una frase motivacional nueva en español (máx. 2 líneas), distinta de ultimaFrase si existe. Luego llama generar_tarjeta_cumpleanos con archivo y frase_motivacional.",
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "generar_tarjeta_cumpleanos",
+  {
+    description:
+      "Genera la imagen PNG de la tarjeta con Gemini, la guarda en la carpeta cumpleanos del usuario y devuelve la imagen para el chat.",
+    inputSchema: {
+      archivo: z.string().describe("Misma ruta .xlsx usada en obtener_cumpleaneros_hoy"),
+      frase_motivacional: z
+        .string()
+        .describe("Frase en español (máx. 2 líneas) redactada por Claude para la tarjeta"),
+    },
+  },
+  async ({ archivo, frase_motivacional }) => {
+    const result = await readCumpleanerosHoy(archivo);
+    if (!result.ok) {
+      return {
+        content: [{ type: "text", text: result.error }],
+        isError: true,
+      };
+    }
+    if (result.cumpleaneros.length === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "No hay cumpleañeros hoy; no se generó imagen.",
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const today = new Date();
+    let image;
+    try {
+      image = await generateBirthdayCardImage({
+        people: result.cumpleaneros,
+        fraseMotivacional: frase_motivacional.trim(),
+        today,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return {
+        content: [{ type: "text", text: msg }],
+        isError: true,
+      };
+    }
+
+    const { dir, fullPath } = outputImagePath(today);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(fullPath, Buffer.from(image.base64, "base64"));
+
+    const fechaKey = localDateKey(today);
+    await writeLastPhrase(fechaKey, frase_motivacional.trim());
+
+    const nombres = result.cumpleaneros.map((c) => c.nombre).join(", ");
+    const summary = [
+      `Cumpleañeros: ${nombres}`,
+      `Imagen guardada en: ${fullPath}`,
+      `Frase usada registrada para evitar repetición el próximo día.`,
+    ].join("\n");
+
+    return {
+      content: [
+        { type: "text", text: summary },
+        {
+          type: "image",
+          data: image.base64,
+          mimeType: image.mimeType,
+        },
+      ],
+    };
+  },
+);
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
