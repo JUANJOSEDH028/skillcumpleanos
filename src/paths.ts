@@ -60,6 +60,14 @@ export function formatTodaySpanish(date: Date = new Date()): string {
   return `${diaSemana}, ${d} de ${mes} de ${y}`;
 }
 
+/** Solo día y mes en español, p. ej. "12 de Mayo" (para agrupación en la tarjeta) */
+export function formatDayMonthSpanish(date: Date = new Date()): string {
+  const d = date.getDate();
+  const mesRaw = MESES_ES[date.getMonth()];
+  const mes = mesRaw.charAt(0).toUpperCase() + mesRaw.slice(1);
+  return `${d} de ${mes}`;
+}
+
 /** Fecha local YYYY-MM-DD (para almacenar última frase) */
 export function localDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();

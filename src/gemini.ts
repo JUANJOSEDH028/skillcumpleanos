@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Cumpleanero } from "./excel.js";
-import { formatTodaySpanish } from "./paths.js";
+import { formatDayMonthSpanish, formatTodaySpanish } from "./paths.js";
 
 /** Orden de prueba si no defines GEMINI_IMAGE_MODEL (muchas keys solo tienen Imagen 4). */
 const DEFAULT_IMAGE_MODELS = [
@@ -11,11 +11,129 @@ const DEFAULT_IMAGE_MODELS = [
   "imagen-3.0-generate-001",
 ] as const;
 
+const ESTILOS_CREATIVOS = [
+  "Luxury corporate",
+  "Modern corporate",
+  "Futurista tecnológico",
+  "Minimalista elegante",
+  "Dark premium",
+  "Glassmorphism",
+  "Abstracto ejecutivo",
+  "Neón elegante",
+  "3D corporativo",
+  "Diseño creativo empresarial",
+] as const;
+
 function imageModelCandidates(): string[] {
   const env = process.env.GEMINI_IMAGE_MODEL?.trim();
   const rest = DEFAULT_IMAGE_MODELS.filter((m) => m !== env);
   const ordered = env ? [env, ...rest] : [...DEFAULT_IMAGE_MODELS];
   return [...new Set(ordered)];
+}
+
+function buildImagePrompt(opts: {
+  people: Cumpleanero[];
+  fraseMotivacional: string;
+  today: Date;
+}): string {
+  const todayLabel = formatTodaySpanish(opts.today);
+  const grupoFecha = formatDayMonthSpanish(opts.today);
+  const listaGrupo = opts.people.map((p) => `- ${p.nombre} — ${p.cargo}`).join("\n");
+  const ejecucionId = Date.now();
+  const estiloIdx =
+    (ejecucionId + opts.people.length * 17 + opts.fraseMotivacional.length * 31) %
+    ESTILOS_CREATIVOS.length;
+  const direccionCreativa = ESTILOS_CREATIVOS[estiloIdx]!;
+  const fraseEsc = opts.fraseMotivacional.replace(/"/g, "'").trim();
+
+  return `Crea una tarjeta corporativa premium de cumpleaños con diseño dinámico y adaptable.
+
+⚠️ IMPORTANTE:
+La tarjeta debe cambiar visualmente en cada ejecución.
+NO reutilizar la misma composición, distribución, colores, fondos ni decoración.
+Cada diseño debe tener una dirección creativa diferente manteniendo estética profesional, moderna y elegante.
+
+CONTEXTO_DE_VARIACIÓN (único para esta generación, ejecución ${ejecucionId}):
+Dirección creativa preferente OBLIGATORIA para ESTA imagen: "${direccionCreativa}".
+Interpreta ese estilo de forma clara y distinta a cualquier tarjeta genérica o repetida.
+
+OBJETIVO:
+Generar una tarjeta institucional de cumpleaños donde los empleados estén agrupados correctamente según su fecha de cumpleaños.
+
+La tarjeta puede contener:
+- Una sola persona
+- Varias personas en la misma fecha
+- Varias fechas diferentes en una misma tarjeta (en este archivo, hoy todos comparten la misma fecha de cumpleaños; agrúpalos en un solo bloque claro)
+
+La IA debe organizar automáticamente la información de forma limpia, elegante y fácil de leer.
+
+REGLAS DE AGRUPACIÓN:
+Agrupar los empleados por fecha de cumpleaños y mostrar cada grupo claramente separado.
+
+ADAPTACIÓN AUTOMÁTICA DEL DISEÑO:
+La composición debe adaptarse automáticamente según:
+- Cantidad de fechas
+- Cantidad de personas por fecha
+- Longitud de nombres
+- Cantidad de texto
+
+Si hay muchas personas:
+- usar diseño tipo grid elegante
+- tarjetas internas
+- columnas balanceadas
+- excelente aprovechamiento del espacio
+
+Si hay pocas personas:
+- usar diseño más visual y protagonista
+
+VARIACIÓN CREATIVA OBLIGATORIA:
+Cambiar dinámicamente:
+- Paleta de colores
+- Tipografía
+- Fondos
+- Estilo gráfico
+- Decoración
+- Distribución
+- Elementos festivos
+- Iluminación
+- Estética visual
+
+Variar entre estilos (elige uno principal coherente con la dirección asignada arriba, sin mezclar caos):
+- Luxury corporate, Modern corporate, Futurista tecnológico, Minimalista elegante, Dark premium, Glassmorphism, Abstracto ejecutivo, Neón elegante, 3D corporativo, Diseño creativo empresarial
+
+ELEMENTOS VISUALES FESTIVOS:
+Usar de forma aleatoria y elegante (no todos a la vez; selecciona un conjunto coherente con el estilo):
+- Globos, confeti, luces, regalos, pasteles, chispas, elementos abstractos, formas geométricas, decoraciones tecnológicas, detalles metálicos, iluminación cinematográfica
+
+TEXTO PRINCIPAL:
+Título muy legible en español:
+"¡Feliz Cumpleaños!"
+
+Subtítulo opcional (puede ir discreto):
+"Celebramos este día especial junto a nuestro equipo"
+
+Mostrar también la fecha de referencia del día (texto en español): ${todayLabel}
+
+FRASE MOTIVACIONAL (solo esta, corta y elegante; tema: crecimiento, éxito, liderazgo, felicidad, trabajo en equipo o nuevos comienzos):
+"${fraseEsc}"
+
+CALIDAD VISUAL:
+- Tarjeta institucional premium, corporativa moderna, composición profesional
+- Excelente legibilidad, elegante y emotiva, ultra detallada
+- Iluminación cinematográfica, acabado de alta calidad
+
+FORMATO Y SALIDA:
+Formato vertical (retrato), aspecto 9:16, apariencia 4K, premium corporate birthday card, modern typography, elegant celebration design, ultra detailed, realistic lighting.
+
+⚠️ MUY IMPORTANTE:
+Usa una dirección creativa completamente diferente en cada ejecución; esta ejecución está anclada al estilo "${direccionCreativa}".
+
+INFORMACIÓN DE CUMPLEAÑOS (obligatorio en el diseño, agrupada por fecha):
+
+${grupoFecha}
+${listaGrupo}
+
+No incluyas marcas de terceros ni logos ajenos. Texto en español.`;
 }
 
 export async function generateBirthdayCardImage(opts: {
@@ -31,26 +149,16 @@ export async function generateBirthdayCardImage(opts: {
   }
 
   const today = opts.today ?? new Date();
-  const todayLabel = formatTodaySpanish(today);
-  const lista = opts.people.map((p) => `- ${p.nombre} (${p.cargo})`).join("\n");
-
-  const prompt = `Tarjeta de cumpleaños cuadrada 1:1, estilo festivo corporativo amigable, mínimo 1080x1080 píxeles de apariencia visual.
-Título grande y muy legible en español: "Feliz Cumpleaños".
-Mostrar claramente la fecha del día en español: ${todayLabel}.
-Lista de cumpleañeros (nombre y cargo), texto legible en español:
-${lista}
-Frase motivacional (máximo dos líneas, español), bien visible:
-"${opts.fraseMotivacional.replace(/"/g, "'")}"
-Estética: confeti, colores vivos, tipografía celebratoria, fondo festivo, composición equilibrada, sin logos de terceros.`;
+  const prompt = buildImagePrompt({ ...opts, today });
 
   const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
   const candidates = imageModelCandidates();
 
   const config = {
     numberOfImages: 1,
-    aspectRatio: "1:1" as const,
+    aspectRatio: "9:16" as const,
     outputMimeType: "image/png",
-    imageSize: "2K" as const,
+    imageSize: "4K" as const,
     includeRaiReason: true,
   };
 
