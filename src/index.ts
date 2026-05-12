@@ -49,6 +49,11 @@ server.registerTool(
                 fechaHoy: formatTodaySpanish(),
                 ultimaFrase: last?.frase ?? null,
                 ultimaFecha: last?.fecha ?? null,
+                diagnostico: {
+                  ...result.stats,
+                  ayuda:
+                    "Se compara solo día y mes con hoy. Fechas aceptadas: DD/MM/AAAA, DD-MM-AAAA, AAAA-MM-DD, DD/MM/AA, celda fecha Excel o ISO con hora. Si filasConFechaValida es 0, revisa el formato de fechaNacimiento o que la primera fila de datos no sea un título.",
+                },
               },
               null,
               2,

@@ -28,7 +28,7 @@ function normalizeRowKeys(row: Record<string, unknown>): Record<string, unknown>
   return out;
 }
 
-/** Interpreta celda de nacimiento: string DD/MM/YYYY, número serial Excel, o Date */
+/** Interpreta celda de nacimiento: Date, serial Excel, DD/MM/AAAA, AAAA-MM-DD, DD-MM-AAAA, con u sin hora */
 export function parseFechaNacimiento(value: unknown): Date | null {
   if (value == null || value === "") return null;
 
@@ -45,17 +45,55 @@ export function parseFechaNacimiento(value: unknown): Date | null {
   }
 
   if (typeof value === "string") {
-    const s = value.trim();
-    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!m) return null;
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10) - 1;
-    const year = parseInt(m[3], 10);
-    const d = new Date(year, month, day);
-    if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) {
+    let s = value.trim();
+    if (/^\d{4}-\d{1,2}-\d{1,2}T/i.test(s)) {
+      s = s.split("T")[0]!.trim();
+    }
+    // Excel a veces exporta "12/5/1990 0:00:00" o con coma decimal en hora
+    const tIdx = s.search(/\s+[0-9]/);
+    if (tIdx > 0 && /[/\-.]/.test(s.slice(0, tIdx))) {
+      s = s.slice(0, tIdx).trim();
+    }
+
+    // ISO YYYY-MM-DD
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) {
+      const year = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      const day = parseInt(m[3], 10);
+      const d = new Date(year, month, day);
+      if (d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) return d;
       return null;
     }
-    return d;
+
+    // DD/MM/YYYY o DD-MM-YYYY
+    m = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      const year = parseInt(m[3], 10);
+      const d = new Date(year, month, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) {
+        return null;
+      }
+      return d;
+    }
+
+    // Año de 2 dígitos DD/MM/YY (heurística 1950–2049)
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+    if (m) {
+      let year = parseInt(m[3], 10);
+      year += year >= 50 ? 1900 : 2000;
+      const day = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      const d = new Date(year, month, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) {
+        return null;
+      }
+      return d;
+    }
+
+    return null;
   }
 
   return null;
@@ -77,8 +115,14 @@ function sameMonthDay(a: Date, b: Date): boolean {
   return a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+export interface LecturaStats {
+  filasLeidas: number;
+  filasConNombre: number;
+  filasConFechaValida: number;
+}
+
 export type ReadExcelResult =
-  | { ok: true; cumpleaneros: Cumpleanero[] }
+  | { ok: true; cumpleaneros: Cumpleanero[]; stats: LecturaStats }
   | { ok: false; error: string };
 
 /**
@@ -134,6 +178,8 @@ export async function readCumpleanerosHoy(
   }
 
   const cumpleaneros: Cumpleanero[] = [];
+  let filasConNombre = 0;
+  let filasConFechaValida = 0;
 
   for (const rawRow of rows) {
     const row = normalizeRowKeys(rawRow);
@@ -145,15 +191,23 @@ export async function readCumpleanerosHoy(
     if (!nombre && !cargo && (fechaCell === "" || fechaCell == null)) continue;
 
     if (!nombre) continue;
+    filasConNombre += 1;
 
     if (!birth) {
       continue;
     }
+    filasConFechaValida += 1;
 
     if (sameMonthDay(birth, today)) {
       cumpleaneros.push({ nombre, cargo: cargo || "—" });
     }
   }
 
-  return { ok: true, cumpleaneros };
+  const stats: LecturaStats = {
+    filasLeidas: rows.length,
+    filasConNombre,
+    filasConFechaValida,
+  };
+
+  return { ok: true, cumpleaneros, stats };
 }
