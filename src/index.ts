@@ -52,7 +52,7 @@ server.registerTool(
                 diagnostico: {
                   ...result.stats,
                   ayuda:
-                    "Se compara solo día y mes con hoy (ver referenciaHoy en el servidor). Si filasConFechaValida < filasConNombre, suele haber una fila con fecha vacía o ilegible. Si aparece filasOmitidasEncabezado > 0, había una fila repetida con los títulos de columnas. Fechas: DD/MM/AAAA, DD-MM-AAAA, AAAA-MM-DD, celda fecha Excel (también se contempla UTC).",
+                    "Se compara solo día y mes con hoy (ver referenciaHoy). Las celdas datetime de Excel se leen con valor serial y texto formateado; no hace falta convertirlas a texto a mano. Si filasConFechaValida < filasConNombre, hay fecha vacía o formato no reconocido. Si filasOmitidasEncabezado > 0, había fila con títulos de columnas. También: DD/MM/AAAA, mes en español, ISO, UTC.",
                 },
               },
               null,

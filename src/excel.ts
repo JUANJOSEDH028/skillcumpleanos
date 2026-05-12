@@ -66,7 +66,10 @@ export function parseFechaNacimiento(value: unknown): Date | null {
     if (/^\d{4}-\d{1,2}-\d{1,2}T/i.test(s)) {
       s = s.split("T")[0]!.trim();
     }
-    // Excel a veces exporta "12/5/1990 0:00:00" o con coma decimal en hora
+    // Hora localizada tipo "12:00:00 a. m." o "12:00:00 PM"
+    s = s.replace(/\s+\d{1,2}:\d{2}(:\d{2})?(\s*[ap]\.?\s*m\.?)?$/i, "").trim();
+
+    // Excel a veces exporta "12/5/1990 0:00:00" (fallback si el regex anterior no aplica)
     const tIdx = s.search(/\s+[0-9]/);
     if (tIdx > 0 && /[/\-.]/.test(s.slice(0, tIdx))) {
       s = s.slice(0, tIdx).trim();
@@ -110,10 +113,81 @@ export function parseFechaNacimiento(value: unknown): Date | null {
       return d;
     }
 
+    // "12 de mayo de 2000" / "12 de mayo del 2000"
+    const mesesPalabra: Record<string, number> = {
+      ene: 0,
+      enero: 0,
+      feb: 1,
+      febrero: 1,
+      mar: 2,
+      marzo: 2,
+      abr: 3,
+      abril: 3,
+      may: 4,
+      mayo: 4,
+      jun: 5,
+      junio: 5,
+      jul: 6,
+      julio: 6,
+      ago: 7,
+      agosto: 7,
+      sep: 8,
+      sept: 8,
+      set: 8,
+      septiembre: 8,
+      oct: 9,
+      octubre: 9,
+      nov: 10,
+      noviembre: 10,
+      dic: 11,
+      diciembre: 11,
+    };
+    m = s.match(/^(\d{1,2})\s+de\s+([a-záéíóúñü]+)\s+(?:de|del)\s+(\d{4}|\d{2})$/i);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      let mesWord = m[2].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      let month = mesesPalabra[mesWord];
+      if (month === undefined && mesWord.length >= 3) {
+        month = mesesPalabra[mesWord.slice(0, 3)];
+      }
+      if (month === undefined) return null;
+      let year = parseInt(m[3], 10);
+      if (m[3].length === 2) year += year >= 50 ? 1900 : 2000;
+      const d = new Date(year, month, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) return null;
+      return d;
+    }
+
+    // "12-may-2000" o "12/mayo/2000"
+    m = s.match(/^(\d{1,2})\s*[/\-.]\s*([a-záéíóúñü]{3,12})\s*[/\-.]\s*(\d{2,4})$/i);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      let mesWord = m[2].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      let month = mesesPalabra[mesWord];
+      if (month === undefined && mesWord.length >= 3) {
+        month = mesesPalabra[mesWord.slice(0, 3)];
+      }
+      if (month === undefined) return null;
+      let year = parseInt(m[3], 10);
+      if (m[3].length === 2) year += year >= 50 ? 1900 : 2000;
+      const d = new Date(year, month, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) return null;
+      return d;
+    }
+
     return null;
   }
 
   return null;
+}
+
+/** Intenta fecha desde celda Excel: valor serial/raw y texto formateado (datetime) */
+export function parseFechaCeldaDoble(rawVal: unknown, fmtVal: unknown): Date | null {
+  return (
+    parseFechaNacimiento(rawVal) ??
+    parseFechaNacimiento(fmtVal) ??
+    parseFechaNacimiento(String(fmtVal ?? "").trim())
+  );
 }
 
 function getNombre(row: Record<string, unknown>): string {
@@ -214,16 +288,24 @@ export async function readCumpleanerosHoy(
   }
 
   const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+  /** Doble lectura: `raw:true` expone el serial numérico de Excel en datetime; `raw:false` el texto mostrado. */
+  const rowsJsonRaw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: null,
+    raw: true,
+  });
+  const rowsJsonFmt = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
     defval: "",
     raw: false,
   });
 
-  if (rows.length === 0) {
+  const n = Math.max(rowsJsonRaw.length, rowsJsonFmt.length);
+  if (n === 0) {
     return { ok: false, error: "La primera hoja del Excel está vacía." };
   }
 
-  const sample = normalizeRowKeys(rows[0]!);
+  const sample = normalizeRowKeys(
+    (rowsJsonRaw[0] ?? rowsJsonFmt[0]) as Record<string, unknown>,
+  );
   const columnasError = validateColumnas(sample);
   if (columnasError) {
     return {
@@ -238,14 +320,18 @@ export async function readCumpleanerosHoy(
   let filasConMesDiaIgualHoy = 0;
   let filasOmitidasEncabezado = 0;
 
-  for (const rawRow of rows) {
-    const row = normalizeRowKeys(rawRow);
-    const nombre = getNombre(row);
-    const cargo = getCargo(row);
-    const fechaCell = getFechaCell(row);
-    const birth = parseFechaNacimiento(fechaCell);
+  for (let i = 0; i < n; i++) {
+    const rowR = normalizeRowKeys((rowsJsonRaw[i] ?? {}) as Record<string, unknown>);
+    const rowF = normalizeRowKeys((rowsJsonFmt[i] ?? {}) as Record<string, unknown>);
+    const nombre = getNombre(rowR) || getNombre(rowF);
+    const cargo = getCargo(rowR) || getCargo(rowF);
+    const fechaRaw = getFechaCell(rowR);
+    const fechaFmt = getFechaCell(rowF);
+    const birth = parseFechaCeldaDoble(fechaRaw, fechaFmt);
 
-    if (!nombre && !cargo && (fechaCell === "" || fechaCell == null)) continue;
+    if (!nombre && !cargo && (fechaRaw == null || fechaRaw === "") && (fechaFmt == null || fechaFmt === "")) {
+      continue;
+    }
 
     if (!nombre) continue;
 
@@ -268,7 +354,7 @@ export async function readCumpleanerosHoy(
   }
 
   const stats: LecturaStats = {
-    filasLeidas: rows.length,
+    filasLeidas: n,
     filasConNombre,
     filasConFechaValida,
     filasConMesDiaIgualHoy,
