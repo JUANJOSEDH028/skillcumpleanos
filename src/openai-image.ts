@@ -16,6 +16,8 @@ import { formatDayMonthSpanish, formatTodaySpanish } from "./paths.js";
 const DEFAULT_IMAGE_MODELS = [
   "gpt-image-2",
   "gpt-image-1.5",
+  "gpt-image-1",
+  "gpt-image-1-mini",
   "dall-e-3",
   "dall-e-2",
 ] as const;
