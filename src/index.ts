@@ -6,6 +6,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import * as z from "zod";
 import { readCumpleanerosHoy } from "./excel.js";
 import { generateBirthdayCardImage } from "./openai-image.js";
+import { resolveEmailConfig, sendBirthdayEmail } from "./email-graph.js";
 import { localDateKey, outputImagePath, formatTodaySpanish } from "./paths.js";
 import { readLastPhrase, writeLastPhrase } from "./phrase-store.js";
 
@@ -135,19 +136,40 @@ server.registerTool(
       };
     }
 
-    const { dir, fullPath } = outputImagePath(today, image.mimeType);
+    const { dir, fullPath, file } = outputImagePath(today, image.mimeType);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(fullPath, Buffer.from(image.base64, "base64"));
 
     const fechaKey = localDateKey(today);
     await writeLastPhrase(fechaKey, frase_motivacional.trim());
 
+    const emailCfg = resolveEmailConfig();
+    let emailStatus = "";
+    if (emailCfg) {
+      try {
+        await sendBirthdayEmail({
+          config: emailCfg,
+          people: result.cumpleaneros,
+          fraseMotivacional: frase_motivacional.trim(),
+          imageBase64: image.base64,
+          imageMimeType: image.mimeType,
+          imageFileName: file,
+          today,
+        });
+        emailStatus = `\nCorreo enviado a: ${emailCfg.toEmail}`;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        emailStatus = `\nCorreo: error al enviar — ${msg}`;
+      }
+    }
+
     const nombres = result.cumpleaneros.map((c) => c.nombre).join(", ");
     const summary = [
       `Cumpleañeros: ${nombres}`,
       `Imagen guardada en: ${fullPath}`,
       `Frase usada registrada para evitar repetición el próximo día.`,
-    ].join("\n");
+      emailStatus,
+    ].filter(Boolean).join("\n");
 
     return {
       content: [

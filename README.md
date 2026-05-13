@@ -151,6 +151,51 @@ Si el timeout persiste, agrega también `"OPENAI_IMAGE_MODEL": "gpt-image-1-mini
 - **`OPENAI_IMAGE_MODEL=gpt-image-1-mini`** — modelo más rápido; calidad ligeramente inferior a `gpt-image-2`.
 - **`OPENAI_IMAGE_OUTPUT_FORMAT=jpeg`** — puede reducir latencia respecto a PNG en modelos que lo admitan.
 
+## Envío de correo (Microsoft Graph)
+
+Si configuras las variables de entorno de Microsoft, el MCP enviará automáticamente un correo con la tarjeta adjunta **después de generarla**, sin pasos adicionales. Si no las configuras, el MCP sigue funcionando igual (solo genera y guarda la imagen).
+
+### Requisitos en Azure
+
+1. En [Microsoft Entra admin center](https://entra.microsoft.com) → **App registrations** → crea (o selecciona) tu app.
+2. Anota: **Application (client) ID**, **Directory (tenant) ID**.
+3. En **Certificates & secrets** → genera un nuevo **Client secret** y cópialo.
+4. En **API permissions** → **Add permission** → **Microsoft Graph** → **Application permissions** → busca y agrega **`Mail.Send`**.
+5. Haz clic en **Grant admin consent** (obligatorio para permisos de aplicación).
+
+### Variables de entorno
+
+| Variable | Descripción |
+|---|---|
+| `MS_TENANT_ID` | ID del tenant (Directory ID) de Azure AD |
+| `MS_CLIENT_ID` | Application (client) ID del app registration |
+| `MS_CLIENT_SECRET` | Client secret generado en el app registration |
+| `MS_SENDER_EMAIL` | Buzón corporativo desde el que se envía (debe tener permiso `Mail.Send`) |
+| `MS_TO_EMAIL` | Correo destinatario donde llegará la tarjeta |
+
+### Ejemplo de `claude_desktop_config.json` con correo habilitado
+
+```json
+"skillcumpleanos": {
+  "command": "npx",
+  "args": ["-y", "github:JUANJOSEDH028/skillcumpleanos"],
+  "timeout": 600000,
+  "env": {
+    "OPENAI_API_KEY": "sk-...",
+    "CUMPLEANOS_TZ": "America/Bogota",
+    "OPENAI_IMAGE_QUALITY": "low",
+    "OPENAI_IMAGE_SIZE": "1024x1024",
+    "MS_TENANT_ID": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "MS_CLIENT_ID": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "MS_CLIENT_SECRET": "tu-client-secret",
+    "MS_SENDER_EMAIL": "remitente@tuempresa.com",
+        "MS_TO_EMAIL": "destinatario@tuempresa.com"
+  }
+}
+```
+
+El correo incluye un cuerpo HTML corporativo con la lista de cumpleañeros, la frase motivacional y la tarjeta como archivo adjunto. Si el envío falla, el chat mostrará el error pero la imagen generada y guardada en disco no se ve afectada.
+
 ## Desarrollo local
 
 ```bash
