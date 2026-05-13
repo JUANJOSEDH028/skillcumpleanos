@@ -1,13 +1,13 @@
 # skillcumpleanos
 
-Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumpleañeros del día y genera una **tarjeta vertical** usando la API de OpenAI según el caso:
+Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumpleañeros del día y genera una **tarjeta vertical** con OpenAI según la guía [**Image generation**](https://developers.openai.com/api/docs/guides/image-generation) (GPT Image, p. ej. **`gpt-image-2`**):
 
-| API (guía [Images and vision](https://developers.openai.com/api/docs/guides/images)) | Uso en este proyecto |
-| ------------------------------------------------------------------------------------ | -------------------- |
-| **Image API** (`client.images.generate`) | **Por defecto** — modelo **`gpt-image-2`** (y fallbacks). |
-| **Responses API** (`client.responses.create` + `tools: [{ type: "image_generation" }]`) | Opcional con `OPENAI_IMAGE_BACKEND=responses` — la imagen sale en `output` como ítems `image_generation_call` → `result` (base64), igual que en la [documentación](https://developers.openai.com/api/docs/guides/images). |
+| API | Cuándo usarla (según OpenAI) | Este proyecto |
+| --- | ---------------------------- | --------------- |
+| [**Image API**](https://developers.openai.com/api/docs/api-reference/images) | Una sola imagen (o edición) por prompt — **mejor opción** para nuestro caso | **Por defecto** — `client.images.generate` con `gpt-image-2` y fallbacks. |
+| [**Responses API**](https://developers.openai.com/api/docs/api-reference/responses) | Flujos conversacionales, multi-turno, edición iterativa | Opcional — `OPENAI_IMAGE_BACKEND=responses`, `output` con `image_generation_call` → `result` (base64). |
 
-El prompt prioriza **texto legible**; los modelos de difusión a veces alucinan letras: si hace falta tipografía perfecta, conviene post-proceso (Canva/PowerPoint) con la misma imagen de fondo.
+El prompt prioriza **texto legible**. OpenAI indica que prompts complejos pueden tardar **hasta ~2 minutos** y que `quality: "low"` acelera borradores; para tarjetas finales suele convenir `medium` / `high` vía `OPENAI_IMAGE_QUALITY`. Los modelos aún pueden fallar en tipografía fina; si hace falta perfección, conviene post-proceso (Canva/PowerPoint) sobre la imagen generada.
 
 > GPT Image (`gpt-image-2`, etc.) puede exigir [verificación de organización](https://help.openai.com/en/articles/10910291-api-organization-verification) en la consola de OpenAI.
 
@@ -87,18 +87,18 @@ Para otra carpeta base, define la variable de entorno `CUMPLEANOS_ROOT` en el mi
 | `CUMPLEANOS_ROOT` | No | Carpeta base en lugar del home del usuario |
 | `CUMPLEANOS_TZ` | No | Zona IANA para “hoy” y comparación de cumpleaños. Por defecto **`America/Bogota`** (UTC-5, Bogotá/Lima). Ejemplo alternativo: `America/Lima` |
 | `OPENAI_IMAGE_BACKEND` | No | **`images`** (por defecto): [Image API](https://developers.openai.com/api/docs/api-reference/images) — `client.images.generate`. **`responses`**: [Responses API](https://developers.openai.com/api/docs/api-reference/responses) — `client.responses.create` con `tools` que incluyen `image_generation`. |
-| `OPENAI_RESPONSES_MODEL` | No | Solo si `OPENAI_IMAGE_BACKEND=responses`. Modelo de la petición Responses (orquesta la herramienta). Por defecto **`gpt-4.1-mini`** (como en la guía); puedes usar p. ej. **`gpt-5.5`** si tu cuenta lo admite. |
-| `OPENAI_RESPONSES_TOOL` | No | Solo Responses: **`minimal`** → solo `{ "type": "image_generation" }` como en la guía. Cualquier otro valor o vacío → herramienta **extendida** (`model`, `quality`, `size`, `output_format`, etc.). En modo minimal se ignoran los campos extra de la herramienta. |
-| `OPENAI_IMAGE_MODEL` | No | **Image API:** orden de prueba por defecto: **`gpt-image-2`**, `gpt-image-1.5`, `dall-e-3`, `dall-e-2`. Fija uno para forzar. **Responses API:** modelo de imagen en la herramienta (p. ej. **`gpt-image-2`**). |
-| `OPENAI_IMAGE_SIZE` | No | Tamaño `WIDTHxHEIGHT` o **`auto`** según [guía de imágenes](https://platform.openai.com/docs/guides/images). Por defecto: **`1024x1536`** (retrato) para GPT Image, **`1024x1792`** para DALL·E 3, **`1024x1024`** para DALL·E 2. |
-| `OPENAI_IMAGE_QUALITY` | No | **GPT Image:** `low`, `medium`, **`high`** (defecto si no coincide), `auto`. **DALL·E 3:** `hd` o `standard`. |
+| `OPENAI_RESPONSES_MODEL` | No | Solo si `OPENAI_IMAGE_BACKEND=responses`. Modelo de la petición Responses. Por defecto **`gpt-5.5`** (como en la [guía Image generation](https://developers.openai.com/api/docs/guides/image-generation)). Comprueba en la [página de modelos](https://developers.openai.com/api/docs/models) que tu modelo soporte la herramienta `image_generation`. |
+| `OPENAI_RESPONSES_TOOL` | No | Solo Responses: **`minimal`** → `{ "type": "image_generation", "action": "generate" }` (forzar nueva imagen, como en la guía). Vacío u otro valor → herramienta **extendida** (`model`, `quality`, `size`, …). |
+| `OPENAI_IMAGE_MODEL` | No | **Image API:** orden por defecto **`gpt-image-2`**, `gpt-image-1.5`, `dall-e-3`, `dall-e-2`. **Responses (extendido):** modelo de imagen en la herramienta (p. ej. **`gpt-image-2`**). |
+| `OPENAI_IMAGE_SIZE` | No | GPT Image: **`auto`** por defecto (recomendación de tamaño por el modelo); o `1024x1024`, `1024x1536`, `1536x1024`, resoluciones 2K/4K válidas, etc. DALL·E 3: **`1024x1792`** si no defines env. DALL·E 2: **`1024x1024`**. Ver [personalizar salida](https://developers.openai.com/api/docs/guides/image-generation). |
+| `OPENAI_IMAGE_QUALITY` | No | **GPT Image:** por defecto **`auto`**; usa **`low`** para borradores rápidos (menor latencia). **DALL·E 3:** `hd` o `standard`. |
 | `OPENAI_IMAGE_OUTPUT_FORMAT` | No | Solo GPT Image en Image API / tool: **`png`**, `jpeg`, `webp`. Por defecto **png**. |
 | `OPENAI_IMAGE_MODERATION` | No | Solo GPT Image: **`auto`** o `low`. |
 | `OPENAI_IMAGE_OUTPUT_COMPRESSION` | No | Solo con `jpeg`/`webp`: número **0–100** (compresión de salida). |
 
 ## Timeouts (error MCP `-32001: Request timed out`)
 
-Ese código lo devuelve el **cliente MCP** (Cursor, Claude Desktop, etc.) cuando deja de esperar la respuesta de la herramienta. **`generar_tarjeta_cumpleanos`** no termina hasta que OpenAI devuelve la imagen; con **GPT Image** la guía oficial indica que prompts complejos pueden tardar **varios minutos**, así que un límite corto (p. ej. **60 s**) dispara el timeout aunque el servidor siga trabajando.
+Ese código lo devuelve el **cliente MCP** (Cursor, Claude Desktop, etc.) cuando deja de esperar la respuesta de la herramienta. **`generar_tarjeta_cumpleanos`** no termina hasta que OpenAI devuelve la imagen. La documentación de GPT Image indica que prompts complejos pueden tardar **hasta unos 2 minutos**; un límite corto (p. ej. **60 s**) dispara el timeout aunque el servidor siga trabajando.
 
 ### 1. Aumentar el timeout del cliente (Cursor)
 
@@ -122,8 +122,8 @@ Guarda, **recarga la ventana** (`Developer: Reload Window`) y vuelve a probar. L
 
 En el `env` del servidor:
 
-- **`OPENAI_IMAGE_MODEL=dall-e-3`** (suele responder antes que `gpt-image-2` en muchos casos; retrato `1024x1792` con `OPENAI_IMAGE_QUALITY=standard` si quieres ahorrar).
-- Para GPT Image: **`OPENAI_IMAGE_QUALITY=low`** o **`medium`**, y tamaño moderado (p. ej. **`1024x1024`** o **`1024x1536`** según [guía de imágenes](https://platform.openai.com/docs/guides/images)).
+- **`OPENAI_IMAGE_MODEL=dall-e-3`** (a veces más rápido que GPT Image).
+- **GPT Image:** **`OPENAI_IMAGE_QUALITY=low`** o **`medium`**, y **`OPENAI_IMAGE_SIZE=1024x1024`** (los cuadrados suelen ser más rápidos según la guía) o **`auto`**.
 - **`OPENAI_IMAGE_OUTPUT_FORMAT=jpeg`** puede reducir latencia respecto a PNG en modelos que lo admitan.
 
 ## Desarrollo local

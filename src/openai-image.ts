@@ -4,12 +4,14 @@ import type { Cumpleanero } from "./excel.js";
 import { formatDayMonthSpanish, formatTodaySpanish } from "./paths.js";
 
 /**
- * Alineado con la guía OpenAI «Images and vision» / generación de imágenes:
- * - Image API: https://developers.openai.com/api/docs/api-reference/images
- * - Responses API + `tools: [{ type: "image_generation" }]`:
+ * Alineado con la guía OpenAI **Image generation** (GPT Image):
+ * https://developers.openai.com/api/docs/guides/image-generation
+ *
+ * - **Image API** (`images.generate`): una sola imagen por prompt (recomendado por OpenAI).
+ * - **Responses API** (`responses.create` + herramienta `image_generation`):
  *   https://developers.openai.com/api/docs/api-reference/responses
  *
- * Por defecto: Image API con `gpt-image-2`. Opcional: Responses API (ver `OPENAI_IMAGE_BACKEND`).
+ * Por defecto: Image API con `gpt-image-2`. Opcional: `OPENAI_IMAGE_BACKEND=responses`.
  */
 const DEFAULT_IMAGE_MODELS = [
   "gpt-image-2",
@@ -56,8 +58,8 @@ function defaultSizeForModel(model: string): string {
   const m = model.toLowerCase();
   if (m.includes("dall-e-3")) return "1024x1792";
   if (m.includes("dall-e-2")) return "1024x1024";
-  if (isGptImageModel(model)) return "1024x1536";
-  return "1024x1536";
+  if (isGptImageModel(model)) return "auto";
+  return "auto";
 }
 
 function resolveImageSize(model: string): string {
@@ -90,7 +92,7 @@ function resolveGenerateQuality(
     }
     if (raw === "hd" || raw === "high") return "high";
     if (raw === "standard") return "medium";
-    return "high";
+    return "auto";
   }
   if (model.toLowerCase().includes("dall-e-3")) {
     return raw === "standard" ? "standard" : "hd";
@@ -183,9 +185,9 @@ async function generateViaResponsesApi(
   client: OpenAI,
   prompt: string,
 ): Promise<{ base64: string; mimeType: string }> {
-  /** Doc «Images and vision»: ej. `gpt-4.1-mini`; también `gpt-5.5` en ejemplos CLI. */
+  /** Guía Image generation: ejemplos con `gpt-5.5` y herramienta `image_generation`. */
   const chatModel =
-    process.env.OPENAI_RESPONSES_MODEL?.trim() || "gpt-4.1-mini";
+    process.env.OPENAI_RESPONSES_MODEL?.trim() || "gpt-5.5";
   const imageModel =
     process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
   const size = resolveImageSize(imageModel);
@@ -197,7 +199,7 @@ async function generateViaResponsesApi(
       : (quality as "low" | "medium" | "high" | "auto");
 
   const tools: OpenAI.Responses.Tool[] = responsesToolMinimal()
-    ? [{ type: "image_generation" }]
+    ? [{ type: "image_generation", action: "generate" }]
     : (() => {
         const moderation = resolveModeration();
         const tool: OpenAI.Responses.Tool.ImageGeneration = {
