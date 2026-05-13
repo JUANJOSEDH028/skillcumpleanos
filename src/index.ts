@@ -11,15 +11,22 @@ import { localDateKey, outputImagePath, outputCardPath, formatTodaySpanish } fro
 import { readLastPhrase, writeLastPhrase } from "./phrase-store.js";
 import type { TipoTarjeta, DatosTarjetaCorporativa } from "./card-types.js";
 
-const INSTRUCTIONS = `Skill tarjetas corporativas. Herramientas disponibles:
+const INSTRUCTIONS = `Skill de tarjetas corporativas con IA. Tienes tres herramientas:
 
-1. obtener_cumpleaneros_hoy + generar_tarjeta_cumpleanos: flujo de cumpleaños desde Excel. Primero obtener cumpleañeros, redactar frase motivacional breve en español (máx. 2 líneas, distinta de ultimaFrase), luego generar tarjeta. Si no hay cumpleañeros, responder amigablemente sin imagen.
+── HERRAMIENTA 1 y 2: CUMPLEAÑOS (requiere archivo Excel) ──
+Usa obtener_cumpleaneros_hoy + generar_tarjeta_cumpleanos SOLO cuando el usuario pida tarjetas de cumpleaños y proporcione la ruta de un archivo .xlsx.
 
-2. generar_tarjeta_corporativa: genera tarjetas de tipo aniversario, reconocimiento, invitacion o descuento con datos directos (sin Excel). ANTES de llamar este tool, Claude debe redactar en español una frase_eslogan breve (máx. 2 líneas) adecuada al tipo:
-   - aniversario: gratitud y celebración de años de servicio
-   - reconocimiento: felicitación por logro, ascenso o meta cumplida
-   - invitacion: convocatoria cálida al evento
-   - descuento: beneficio y oportunidad para el equipo`;
+── HERRAMIENTA 3: TARJETAS CORPORATIVAS (NO requiere Excel, NO pidas archivo) ──
+Usa generar_tarjeta_corporativa para: aniversario laboral, reconocimiento/logro/ascenso, invitación a evento, descuento/promoción.
+NO pidas ningún archivo al usuario. Todos los datos vienen de lo que el usuario te describe.
+Flujo obligatorio:
+1. Extrae del mensaje del usuario: tipo, nombre del destinatario y detalles relevantes.
+2. Redacta en español una frase_eslogan breve (máx. 2 líneas) adecuada al tipo:
+   - aniversario → gratitud por años de servicio
+   - reconocimiento → felicitación por logro o ascenso
+   - invitacion → convocatoria cálida al evento
+   - descuento → beneficio y oportunidad para el equipo
+3. Llama generar_tarjeta_corporativa con todos los parámetros. No pidas confirmación, genera directamente.`;
 
 const server = new McpServer(
   { name: "skillcumpleanos", version: "1.0.0" },
