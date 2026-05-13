@@ -1,6 +1,13 @@
 # skillcumpleanos
 
-Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumpleañeros del día y genera una **tarjeta vertical** con la **Image API** de OpenAI (`images.generate`), priorizando **`gpt-image-2`** (y fallbacks `gpt-image-1.5`, DALL·E). Opcionalmente puedes usar la **Responses API** con la herramienta integrada `image_generation` (p. ej. `gpt-5.5`). El prompt prioriza **texto legible**; los modelos de difusión a veces alucinan letras: si hace falta tipografía perfecta, conviene post-proceso (Canva/PowerPoint) con la misma imagen de fondo.
+Servidor MCP para Claude Desktop: lee un Excel con colaboradores, detecta cumpleañeros del día y genera una **tarjeta vertical** usando la API de OpenAI según el caso:
+
+| API (guía [Images and vision](https://developers.openai.com/api/docs/guides/images)) | Uso en este proyecto |
+| ------------------------------------------------------------------------------------ | -------------------- |
+| **Image API** (`client.images.generate`) | **Por defecto** — modelo **`gpt-image-2`** (y fallbacks). |
+| **Responses API** (`client.responses.create` + `tools: [{ type: "image_generation" }]`) | Opcional con `OPENAI_IMAGE_BACKEND=responses` — la imagen sale en `output` como ítems `image_generation_call` → `result` (base64), igual que en la [documentación](https://developers.openai.com/api/docs/guides/images). |
+
+El prompt prioriza **texto legible**; los modelos de difusión a veces alucinan letras: si hace falta tipografía perfecta, conviene post-proceso (Canva/PowerPoint) con la misma imagen de fondo.
 
 > GPT Image (`gpt-image-2`, etc.) puede exigir [verificación de organización](https://help.openai.com/en/articles/10910291-api-organization-verification) en la consola de OpenAI.
 
@@ -79,8 +86,9 @@ Para otra carpeta base, define la variable de entorno `CUMPLEANOS_ROOT` en el mi
 | `OPENAI_API_KEY` | Sí | API key de OpenAI (acceso a generación de imágenes) |
 | `CUMPLEANOS_ROOT` | No | Carpeta base en lugar del home del usuario |
 | `CUMPLEANOS_TZ` | No | Zona IANA para “hoy” y comparación de cumpleaños. Por defecto **`America/Bogota`** (UTC-5, Bogotá/Lima). Ejemplo alternativo: `America/Lima` |
-| `OPENAI_IMAGE_BACKEND` | No | **`images`** (por defecto): `client.images.generate`. **`responses`**: `client.responses.create` con `tools: [{ type: "image_generation" }]` (modelo de chat en `OPENAI_RESPONSES_MODEL`). |
-| `OPENAI_RESPONSES_MODEL` | No | Solo si `OPENAI_IMAGE_BACKEND=responses`. Modelo que orquesta la herramienta (p. ej. **`gpt-5.5`**). |
+| `OPENAI_IMAGE_BACKEND` | No | **`images`** (por defecto): [Image API](https://developers.openai.com/api/docs/api-reference/images) — `client.images.generate`. **`responses`**: [Responses API](https://developers.openai.com/api/docs/api-reference/responses) — `client.responses.create` con `tools` que incluyen `image_generation`. |
+| `OPENAI_RESPONSES_MODEL` | No | Solo si `OPENAI_IMAGE_BACKEND=responses`. Modelo de la petición Responses (orquesta la herramienta). Por defecto **`gpt-4.1-mini`** (como en la guía); puedes usar p. ej. **`gpt-5.5`** si tu cuenta lo admite. |
+| `OPENAI_RESPONSES_TOOL` | No | Solo Responses: **`minimal`** → solo `{ "type": "image_generation" }` como en la guía. Cualquier otro valor o vacío → herramienta **extendida** (`model`, `quality`, `size`, `output_format`, etc.). En modo minimal se ignoran los campos extra de la herramienta. |
 | `OPENAI_IMAGE_MODEL` | No | **Image API:** orden de prueba por defecto: **`gpt-image-2`**, `gpt-image-1.5`, `dall-e-3`, `dall-e-2`. Fija uno para forzar. **Responses API:** modelo de imagen en la herramienta (p. ej. **`gpt-image-2`**). |
 | `OPENAI_IMAGE_SIZE` | No | Tamaño `WIDTHxHEIGHT` o **`auto`** según [guía de imágenes](https://platform.openai.com/docs/guides/images). Por defecto: **`1024x1536`** (retrato) para GPT Image, **`1024x1792`** para DALL·E 3, **`1024x1024`** para DALL·E 2. |
 | `OPENAI_IMAGE_QUALITY` | No | **GPT Image:** `low`, `medium`, **`high`** (defecto si no coincide), `auto`. **DALL·E 3:** `hd` o `standard`. |

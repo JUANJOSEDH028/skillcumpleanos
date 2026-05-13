@@ -4,8 +4,12 @@ import type { Cumpleanero } from "./excel.js";
 import { formatDayMonthSpanish, formatTodaySpanish } from "./paths.js";
 
 /**
- * Image API (recomendado para una sola imagen por prompt): `gpt-image-2`, etc.
- * Opcional: Responses API + herramienta `image_generation` (p. ej. modelo `gpt-5.5`).
+ * Alineado con la guía OpenAI «Images and vision» / generación de imágenes:
+ * - Image API: https://developers.openai.com/api/docs/api-reference/images
+ * - Responses API + `tools: [{ type: "image_generation" }]`:
+ *   https://developers.openai.com/api/docs/api-reference/responses
+ *
+ * Por defecto: Image API con `gpt-image-2`. Opcional: Responses API (ver `OPENAI_IMAGE_BACKEND`).
  */
 const DEFAULT_IMAGE_MODELS = [
   "gpt-image-2",
@@ -167,12 +171,21 @@ function extractImageFromResponsesOutput(
   return null;
 }
 
+function responsesToolMinimal(): boolean {
+  const v = process.env.OPENAI_RESPONSES_TOOL?.trim().toLowerCase();
+  return v === "minimal" || v === "1" || v === "true" || v === "yes";
+}
+
+/**
+ * Igual que en la guía: `response.output` → ítems con `type === "image_generation_call"` → `result` (base64).
+ */
 async function generateViaResponsesApi(
   client: OpenAI,
   prompt: string,
 ): Promise<{ base64: string; mimeType: string }> {
+  /** Doc «Images and vision»: ej. `gpt-4.1-mini`; también `gpt-5.5` en ejemplos CLI. */
   const chatModel =
-    process.env.OPENAI_RESPONSES_MODEL?.trim() || "gpt-5.5";
+    process.env.OPENAI_RESPONSES_MODEL?.trim() || "gpt-4.1-mini";
   const imageModel =
     process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
   const size = resolveImageSize(imageModel);
@@ -183,27 +196,35 @@ async function generateViaResponsesApi(
       ? "high"
       : (quality as "low" | "medium" | "high" | "auto");
 
-  const moderation = resolveModeration();
-  const tool: OpenAI.Responses.Tool.ImageGeneration = {
-    type: "image_generation",
-    action: "generate",
-    model: imageModel as OpenAI.Responses.Tool.ImageGeneration["model"],
-    quality: gptQuality,
-    size: size as OpenAI.Responses.Tool.ImageGeneration["size"],
-    output_format: outputFormat,
-  };
-  if (moderation) tool.moderation = moderation;
-  const oc = outputCompression();
-  if (oc !== undefined && (outputFormat === "jpeg" || outputFormat === "webp")) {
-    tool.output_compression = oc;
-  }
+  const tools: OpenAI.Responses.Tool[] = responsesToolMinimal()
+    ? [{ type: "image_generation" }]
+    : (() => {
+        const moderation = resolveModeration();
+        const tool: OpenAI.Responses.Tool.ImageGeneration = {
+          type: "image_generation",
+          action: "generate",
+          model: imageModel as OpenAI.Responses.Tool.ImageGeneration["model"],
+          quality: gptQuality,
+          size: size as OpenAI.Responses.Tool.ImageGeneration["size"],
+          output_format: outputFormat,
+        };
+        if (moderation) tool.moderation = moderation;
+        const oc = outputCompression();
+        if (
+          oc !== undefined &&
+          (outputFormat === "jpeg" || outputFormat === "webp")
+        ) {
+          tool.output_compression = oc;
+        }
+        return [tool];
+      })();
 
-  const input = `Generate exactly one image for a birthday card. Follow this art direction in full:\n\n${prompt}`;
+  const input = `Generate an image. Follow this brief exactly (one vertical birthday card):\n\n${prompt}`;
 
   const response = await client.responses.create({
     model: chatModel,
     input,
-    tools: [tool],
+    tools,
   });
 
   if (response.error) {
