@@ -33,7 +33,9 @@ El prompt prioriza **texto legible**. OpenAI indica que prompts complejos pueden
   "timeout": 600000,
   "env": {
     "OPENAI_API_KEY": "PEGA_AQUI_TU_API_KEY",
-    "CUMPLEANOS_TZ": "America/Bogota"
+    "CUMPLEANOS_TZ": "America/Bogota",
+    "OPENAI_IMAGE_QUALITY": "low",
+    "OPENAI_IMAGE_SIZE": "1024x1024"
   }
 }
 ```
@@ -53,14 +55,16 @@ El prompt prioriza **texto legible**. OpenAI indica que prompts complejos pueden
       "timeout": 600000,
       "env": {
         "OPENAI_API_KEY": "PEGA_AQUI_TU_API_KEY",
-        "CUMPLEANOS_TZ": "America/Bogota"
+        "CUMPLEANOS_TZ": "America/Bogota",
+        "OPENAI_IMAGE_QUALITY": "low",
+        "OPENAI_IMAGE_SIZE": "1024x1024"
       }
     }
   }
 }
 ```
 
-`timeout` está en milisegundos (600000 = 10 min); en algunas apps no alarga el RPC de herramientas. Si ves `-32001`, añade en `env` por ejemplo `OPENAI_IMAGE_QUALITY`=`low` y `OPENAI_IMAGE_SIZE`=`1024x1024` (ver sección Timeouts).
+`timeout` está en milisegundos (600000 = 10 min); en algunas apps no alarga el RPC de herramientas. **`OPENAI_IMAGE_QUALITY`=`low`** y **`OPENAI_IMAGE_SIZE`=`1024x1024`** reducen latencia (útil si ves error `-32001`); para máxima calidad en la tarjeta puedes subir a `medium`/`high` o usar `1024x1536` cuando el cliente permita esperas largas.
 
 ## Excel esperado
 
@@ -124,11 +128,28 @@ Guarda, **recarga la ventana** (`Developer: Reload Window`) y vuelve a probar. L
 
 ### 3. Hacer la generación más rápida (mismo MCP, sin tocar el IDE)
 
-En el `env` del servidor:
+Agrega estas variables en el bloque `env` de `claude_desktop_config.json`. La combinación más efectiva es **`quality=low` + `size=1024x1024`**; en pruebas reales bajó de >60 s a ~15 s con `gpt-image-2`:
 
-- **`OPENAI_IMAGE_MODEL=dall-e-3`** (a veces más rápido que GPT Image).
-- **GPT Image:** **`OPENAI_IMAGE_QUALITY=low`** o **`medium`**, y **`OPENAI_IMAGE_SIZE=1024x1024`** (los cuadrados suelen ser más rápidos según la guía) o **`auto`**.
-- **`OPENAI_IMAGE_OUTPUT_FORMAT=jpeg`** puede reducir latencia respecto a PNG en modelos que lo admitan.
+```json
+"skillcumpleanos": {
+  "command": "npx",
+  "args": ["-y", "github:JUANJOSEDH028/skillcumpleanos"],
+  "timeout": 600000,
+  "env": {
+    "OPENAI_API_KEY": "PEGA_AQUI_TU_API_KEY",
+    "CUMPLEANOS_TZ": "America/Bogota",
+    "OPENAI_IMAGE_QUALITY": "low",
+    "OPENAI_IMAGE_SIZE": "1024x1024"
+  }
+}
+```
+
+Si el timeout persiste, agrega también `"OPENAI_IMAGE_MODEL": "gpt-image-1-mini"` para usar el modelo más veloz disponible (~16 s en pruebas). Otras opciones:
+
+- **`OPENAI_IMAGE_QUALITY=low`** — mayor impacto en latencia para GPT Image (recomendado para producción con timeout corto).
+- **`OPENAI_IMAGE_SIZE=1024x1024`** — los cuadrados son más rápidos que los verticales según la guía de OpenAI.
+- **`OPENAI_IMAGE_MODEL=gpt-image-1-mini`** — modelo más rápido; calidad ligeramente inferior a `gpt-image-2`.
+- **`OPENAI_IMAGE_OUTPUT_FORMAT=jpeg`** — puede reducir latencia respecto a PNG en modelos que lo admitan.
 
 ## Desarrollo local
 
@@ -146,7 +167,9 @@ En `claude_desktop_config.json` puedes apuntar al código local:
   "command": "node",
   "args": ["C:\\ruta\\completa\\a\\skillcumpleanos\\dist\\index.js"],
   "env": {
-    "OPENAI_API_KEY": "tu_key"
+    "OPENAI_API_KEY": "tu_key",
+    "OPENAI_IMAGE_QUALITY": "low",
+    "OPENAI_IMAGE_SIZE": "1024x1024"
   }
 }
 ```
