@@ -88,6 +88,33 @@ Para otra carpeta base, define la variable de entorno `CUMPLEANOS_ROOT` en el mi
 | `OPENAI_IMAGE_MODERATION` | No | Solo GPT Image: **`auto`** o `low`. |
 | `OPENAI_IMAGE_OUTPUT_COMPRESSION` | No | Solo con `jpeg`/`webp`: número **0–100** (compresión de salida). |
 
+## Timeouts (error MCP `-32001: Request timed out`)
+
+Ese código lo devuelve el **cliente MCP** (Cursor, Claude Desktop, etc.) cuando deja de esperar la respuesta de la herramienta. **`generar_tarjeta_cumpleanos`** no termina hasta que OpenAI devuelve la imagen; con **GPT Image** la guía oficial indica que prompts complejos pueden tardar **varios minutos**, así que un límite corto (p. ej. **60 s**) dispara el timeout aunque el servidor siga trabajando.
+
+### 1. Aumentar el timeout del cliente (Cursor)
+
+En Cursor: **Settings → buscar “MCP”** o abre **Settings (JSON)** y prueba valores en **milisegundos** (ej. **10 minutos = 600000**), según la versión de Cursor:
+
+```json
+"mcp.server.timeout": 600000,
+"mcp.elicitation.timeout": 600000
+```
+
+Guarda, **recarga la ventana** (`Developer: Reload Window`) y vuelve a probar. Los nombres exactos pueden variar entre versiones; si no surten efecto, revisa la documentación o el foro de Cursor para tu build.
+
+### 2. Claude Desktop
+
+Muchas versiones aplican un **timeout fijo** a las herramientas MCP (~60 s) que **no siempre se puede ampliar** desde `claude_desktop_config.json`. Si sigues cortando, prioriza generación más rápida (apartado 3) o ejecuta el servidor en terminal con `node dist/index.js` solo para pruebas.
+
+### 3. Hacer la generación más rápida (mismo MCP, sin tocar el IDE)
+
+En el `env` del servidor:
+
+- **`OPENAI_IMAGE_MODEL=dall-e-3`** (suele responder antes que `gpt-image-2` en muchos casos; retrato `1024x1792` con `OPENAI_IMAGE_QUALITY=standard` si quieres ahorrar).
+- Para GPT Image: **`OPENAI_IMAGE_QUALITY=low`** o **`medium`**, y tamaño moderado (p. ej. **`1024x1024`** o **`1024x1536`** según [guía de imágenes](https://platform.openai.com/docs/guides/images)).
+- **`OPENAI_IMAGE_OUTPUT_FORMAT=jpeg`** puede reducir latencia respecto a PNG en modelos que lo admitan.
+
 ## Desarrollo local
 
 ```bash
