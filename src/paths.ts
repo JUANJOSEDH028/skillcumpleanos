@@ -79,6 +79,29 @@ export function formatDayMonthSpanish(date: Date = new Date()): string {
   return `${d} de ${mes}`;
 }
 
+/** Ruta de imagen para tarjetas corporativas genéricas: `<tipo>/YYYY/mes/DD-<slug>.<ext>` */
+export function outputCardPath(
+  tipo: string,
+  date: Date = new Date(),
+  mimeType = "image/png",
+  slug = "",
+): {
+  dir: string;
+  file: string;
+  fullPath: string;
+} {
+  const y = date.getFullYear();
+  const mes = MESES_ES[date.getMonth()];
+  const dd = String(date.getDate()).padStart(2, "0");
+  const ext = extensionFromMime(mimeType);
+  const dir = path.join(getCumpleanosRoot(), tipo, String(y), mes);
+  const safeSlug = slug
+    ? "-" + slug.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 20)
+    : "";
+  const file = `${dd}${safeSlug}.${ext}`;
+  return { dir, file, fullPath: path.join(dir, file) };
+}
+
 /** Fecha local YYYY-MM-DD (para almacenar última frase) */
 export function localDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();

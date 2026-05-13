@@ -43,6 +43,78 @@ function buildInlineImageBody(): string {
 </html>`;
 }
 
+export interface SendCardEmailOpts {
+  config: EmailConfig;
+  asunto: string;
+  imageBase64: string;
+  imageMimeType: string;
+  imageFileName: string;
+}
+
+export async function sendCardEmail(opts: SendCardEmailOpts): Promise<void> {
+  const { config } = opts;
+  const credential = new ClientSecretCredential(
+    config.tenantId,
+    config.clientId,
+    config.clientSecret,
+  );
+  const tokenResponse = await credential.getToken(
+    "https://graph.microsoft.com/.default",
+  );
+  if (!tokenResponse?.token) {
+    throw new Error("No se pudo obtener el token de Microsoft Graph.");
+  }
+  const toAddresses = parseToRecipients(config.toEmail);
+  if (toAddresses.length === 0) {
+    throw new Error("MS_TO_EMAIL no contiene ninguna dirección válida.");
+  }
+  const payload = {
+    message: {
+      subject: opts.asunto,
+      body: {
+        contentType: "HTML",
+        content: buildInlineImageBody(),
+      },
+      toRecipients: toAddresses.map((address) => ({
+        emailAddress: { address },
+      })),
+      attachments: [
+        {
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: opts.imageFileName,
+          contentType: opts.imageMimeType,
+          contentBytes: opts.imageBase64,
+          contentId: INLINE_CARD_CID,
+          isInline: true,
+        },
+      ],
+    },
+    saveToSentItems: true,
+  };
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.senderEmail)}/sendMail`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${tokenResponse.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (response.status !== 202) {
+    let detail = "";
+    try {
+      const body = (await response.json()) as { error?: { message?: string } };
+      detail = body?.error?.message ?? JSON.stringify(body);
+    } catch {
+      detail = await response.text();
+    }
+    throw new Error(
+      `Graph API respondió ${response.status}: ${detail}. ` +
+        "Verifica que el app registration tenga el permiso Mail.Send con consentimiento de administrador.",
+    );
+  }
+}
+
 export async function sendBirthdayEmail(opts: {
   config: EmailConfig;
   people: Cumpleanero[];

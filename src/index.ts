@@ -5,12 +5,21 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod";
 import { readCumpleanerosHoy } from "./excel.js";
-import { generateBirthdayCardImage } from "./openai-image.js";
-import { resolveEmailConfig, sendBirthdayEmail } from "./email-graph.js";
-import { localDateKey, outputImagePath, formatTodaySpanish } from "./paths.js";
+import { generateBirthdayCardImage, generateCorporateCardImage } from "./openai-image.js";
+import { resolveEmailConfig, sendBirthdayEmail, sendCardEmail } from "./email-graph.js";
+import { localDateKey, outputImagePath, outputCardPath, formatTodaySpanish } from "./paths.js";
 import { readLastPhrase, writeLastPhrase } from "./phrase-store.js";
+import type { TipoTarjeta, DatosTarjetaCorporativa } from "./card-types.js";
 
-const INSTRUCTIONS = `Skill cumpleaños: primero usa la herramienta obtener_cumpleaneros_hoy con la ruta del Excel. Si hay cumpleañeros, escribe en español una frase motivacional breve (máximo dos líneas), positiva y distinta de la última frase indicada si aplica. Luego llama generar_tarjeta_cumpleanos con la misma ruta y la frase. Si no hay cumpleañeros, responde de forma amigable sin generar imagen.`;
+const INSTRUCTIONS = `Skill tarjetas corporativas. Herramientas disponibles:
+
+1. obtener_cumpleaneros_hoy + generar_tarjeta_cumpleanos: flujo de cumpleaños desde Excel. Primero obtener cumpleañeros, redactar frase motivacional breve en español (máx. 2 líneas, distinta de ultimaFrase), luego generar tarjeta. Si no hay cumpleañeros, responder amigablemente sin imagen.
+
+2. generar_tarjeta_corporativa: genera tarjetas de tipo aniversario, reconocimiento, invitacion o descuento con datos directos (sin Excel). ANTES de llamar este tool, Claude debe redactar en español una frase_eslogan breve (máx. 2 líneas) adecuada al tipo:
+   - aniversario: gratitud y celebración de años de servicio
+   - reconocimiento: felicitación por logro, ascenso o meta cumplida
+   - invitacion: convocatoria cálida al evento
+   - descuento: beneficio y oportunidad para el equipo`;
 
 const server = new McpServer(
   { name: "skillcumpleanos", version: "1.0.0" },
@@ -179,6 +188,125 @@ server.registerTool(
           data: image.base64,
           mimeType: image.mimeType,
         },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "generar_tarjeta_corporativa",
+  {
+    description:
+      "Genera una tarjeta corporativa PNG de tipo aniversario laboral, reconocimiento/logro, " +
+      "invitación a evento o descuento/promoción. Recibe todos los datos como parámetros directos " +
+      "(sin Excel). Claude debe redactar la frase_eslogan antes de llamar este tool.",
+    inputSchema: {
+      tipo: z
+        .enum(["aniversario", "reconocimiento", "invitacion", "descuento"])
+        .describe(
+          "Tipo de tarjeta: aniversario (años de servicio), reconocimiento (logro/ascenso), " +
+          "invitacion (evento corporativo), descuento (promoción interna)",
+        ),
+      nombre_destinatario: z
+        .string()
+        .min(1)
+        .describe("Nombre de la persona homenajeada o audiencia. Ej: 'María González', 'Equipo de Ventas'"),
+      frase_eslogan: z
+        .string()
+        .min(1)
+        .describe("Frase motivacional o eslogan en español (máx. 2 líneas) redactada por Claude para la tarjeta"),
+      detalle: z
+        .string()
+        .optional()
+        .describe(
+          "Texto secundario según el tipo. " +
+          "Reconocimiento: nombre del logro o cargo nuevo. " +
+          "Invitación: nombre del evento. " +
+          "Descuento: descripción del beneficio (ej. '30% en capacitaciones').",
+        ),
+      anos_servicio: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Solo para tipo=aniversario. Número de años cumplidos en la empresa."),
+      fecha_evento: z
+        .string()
+        .optional()
+        .describe("Solo para tipo=invitacion. Fecha u hora en texto libre (ej. 'Viernes 20 de Junio, 6 PM')."),
+    },
+  },
+  async ({ tipo, nombre_destinatario, frase_eslogan, detalle, anos_servicio, fecha_evento }) => {
+    const today = new Date();
+
+    const datos: DatosTarjetaCorporativa = {
+      tipo: tipo as TipoTarjeta,
+      nombre_destinatario: nombre_destinatario.trim(),
+      frase_eslogan: frase_eslogan.trim(),
+      detalle: detalle?.trim(),
+      anos_servicio,
+      fecha_evento: fecha_evento?.trim(),
+      today,
+    };
+
+    let image: { base64: string; mimeType: string };
+    try {
+      image = await generateCorporateCardImage(datos);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { content: [{ type: "text", text: msg }], isError: true };
+    }
+
+    const slug = nombre_destinatario.trim().split(/\s+/).slice(0, 2).join("-");
+    const { dir, fullPath, file } = outputCardPath(tipo, today, image.mimeType, slug);
+    try {
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(fullPath, Buffer.from(image.base64, "base64"));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { content: [{ type: "text", text: `Error guardando imagen: ${msg}` }], isError: true };
+    }
+
+    const emailCfg = resolveEmailConfig();
+    let emailStatus = "";
+    if (emailCfg) {
+      const asuntoMap: Record<string, string> = {
+        aniversario: anos_servicio
+          ? `Feliz Aniversario — ${nombre_destinatario} · ${anos_servicio} años`
+          : `Feliz Aniversario — ${nombre_destinatario}`,
+        reconocimiento: `Reconocimiento — ${nombre_destinatario}${detalle ? ` · ${detalle}` : ""}`,
+        invitacion: `Invitación — ${detalle ?? nombre_destinatario}`,
+        descuento: `Oferta Especial — ${detalle ?? nombre_destinatario}`,
+      };
+      const asunto = asuntoMap[tipo] ?? `Tarjeta corporativa — ${nombre_destinatario}`;
+      try {
+        await sendCardEmail({
+          config: emailCfg,
+          asunto,
+          imageBase64: image.base64,
+          imageMimeType: image.mimeType,
+          imageFileName: file,
+        });
+        emailStatus = `\nCorreo enviado a: ${emailCfg.toEmail}`;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        emailStatus = `\nCorreo: error al enviar — ${msg}`;
+      }
+    }
+
+    const summary = [
+      `Tipo: ${tipo}`,
+      `Destinatario: ${nombre_destinatario}`,
+      `Imagen guardada en: ${fullPath}`,
+      emailStatus,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return {
+      content: [
+        { type: "text", text: summary },
+        { type: "image", data: image.base64, mimeType: image.mimeType },
       ],
     };
   },
