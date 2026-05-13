@@ -2,6 +2,9 @@ import { ClientSecretCredential } from "@azure/identity";
 import type { Cumpleanero } from "./excel.js";
 import { formatDayMonthSpanish } from "./paths.js";
 
+/** Debe coincidir con `src="cid:…"` del HTML (adjunto en línea Graph). */
+const INLINE_CARD_CID = "skillcumpleanos-tarjeta";
+
 export interface EmailConfig {
   tenantId: string;
   clientId: string;
@@ -28,65 +31,14 @@ export function parseToRecipients(toEmail: string): string[] {
     .filter(Boolean);
 }
 
-function buildEmailHtml(opts: {
-  people: Cumpleanero[];
-  fraseMotivacional: string;
-  today: Date;
-}): string {
-  const fechaLabel = formatDayMonthSpanish(opts.today);
-  const filas = opts.people
-    .map(
-      (p) => `
-      <tr>
-        <td style="padding:8px 12px;font-size:16px;font-weight:600;color:#1a1a2e;">${p.nombre}</td>
-        <td style="padding:8px 12px;font-size:14px;color:#555;">${p.cargo}</td>
-      </tr>`,
-    )
-    .join("");
-
+function buildInlineImageBody(): string {
   return `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:32px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
-        <tr>
-          <td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);padding:40px 40px 32px;text-align:center;">
-            <div style="font-size:42px;margin-bottom:8px;">🎂</div>
-            <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:1px;">¡Feliz Cumpleaños!</h1>
-            <p style="margin:8px 0 0;color:#a0b4cc;font-size:15px;">${fechaLabel}</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:32px 40px 24px;">
-            <p style="margin:0 0 20px;color:#333;font-size:15px;">Celebramos este día especial junto a nuestro equipo:</p>
-            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f8f9ff;border-radius:8px;overflow:hidden;">
-              <thead>
-                <tr style="background:#e8ecf8;">
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.5px;">Nombre</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.5px;">Cargo</th>
-                </tr>
-              </thead>
-              <tbody>${filas}</tbody>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 40px 32px;">
-            <blockquote style="margin:0;padding:16px 20px;background:#f0f4ff;border-left:4px solid #0f3460;border-radius:0 8px 8px 0;">
-              <p style="margin:0;font-size:15px;font-style:italic;color:#333;">"${opts.fraseMotivacional}"</p>
-            </blockquote>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:16px 40px 32px;text-align:center;border-top:1px solid #eee;">
-            <p style="margin:0;font-size:12px;color:#aaa;">Tarjeta generada automáticamente · skillcumpleanos MCP</p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
+<body style="margin:0;padding:0;background:#f0f0f0;">
+  <div style="text-align:center;padding:12px;">
+    <img src="cid:${INLINE_CARD_CID}" alt="Tarjeta de cumpleaños" width="1080" style="max-width:100%;height:auto;display:block;margin:0 auto;border:0;"/>
+  </div>
 </body>
 </html>`;
 }
@@ -100,6 +52,7 @@ export async function sendBirthdayEmail(opts: {
   imageFileName: string;
   today: Date;
 }): Promise<void> {
+  void opts.fraseMotivacional;
   const { config } = opts;
 
   const credential = new ClientSecretCredential(
@@ -128,11 +81,7 @@ export async function sendBirthdayEmail(opts: {
       subject: `🎂 ¡Feliz Cumpleaños! — ${fechaLabel} · ${nombresCortos}`,
       body: {
         contentType: "HTML",
-        content: buildEmailHtml({
-          people: opts.people,
-          fraseMotivacional: opts.fraseMotivacional,
-          today: opts.today,
-        }),
+        content: buildInlineImageBody(),
       },
       toRecipients: toAddresses.map((address) => ({
         emailAddress: { address },
@@ -143,6 +92,8 @@ export async function sendBirthdayEmail(opts: {
           name: opts.imageFileName,
           contentType: opts.imageMimeType,
           contentBytes: opts.imageBase64,
+          contentId: INLINE_CARD_CID,
+          isInline: true,
         },
       ],
     },
@@ -162,7 +113,7 @@ export async function sendBirthdayEmail(opts: {
   if (response.status !== 202) {
     let detail = "";
     try {
-      const body = await response.json() as { error?: { message?: string } };
+      const body = (await response.json()) as { error?: { message?: string } };
       detail = body?.error?.message ?? JSON.stringify(body);
     } catch {
       detail = await response.text();
