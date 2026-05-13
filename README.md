@@ -103,9 +103,12 @@ En Cursor: **Settings → buscar “MCP”** o abre **Settings (JSON)** y prueba
 
 Guarda, **recarga la ventana** (`Developer: Reload Window`) y vuelve a probar. Los nombres exactos pueden variar entre versiones; si no surten efecto, revisa la documentación o el foro de Cursor para tu build.
 
-### 2. Claude Desktop
+### 2. Claude Desktop y Claude Cowork
 
-Muchas versiones aplican un **timeout fijo** a las herramientas MCP (~60 s) que **no siempre se puede ampliar** desde `claude_desktop_config.json`. Si sigues cortando, prioriza generación más rápida (apartado 3) o ejecuta el servidor en terminal con `node dist/index.js` solo para pruebas.
+**Claude Cowork** usa el mismo cliente MCP que **Claude Desktop** (stdio / conectores). Hoy **no hay un control en la interfaz de Cowork** para alargar el tiempo de espera de una herramienta MCP.
+
+- Puedes probar en **`claude_desktop_config.json`** un campo **`timeout`** en milisegundos junto al servidor (p. ej. `"timeout": 300000`), pero en muchas versiones **sigue sin aplicarse** al RPC de herramientas y el fallo ~60 s continúa; depende del build de la app.
+- Si no puedes subir el límite, usa el **apartado 3** (modelo/calidad más rápidos) o genera la tarjeta **fuera de Cowork** (por ejemplo `node dist/index.js` en local o un script que llame a la misma lógica).
 
 ### 3. Hacer la generación más rápida (mismo MCP, sin tocar el IDE)
 
