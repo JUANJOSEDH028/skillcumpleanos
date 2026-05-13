@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { ResponseOutputItem } from "openai/resources/responses/responses";
 import type { Cumpleanero } from "./excel.js";
-import { formatDayMonthSpanish, formatTodaySpanish } from "./paths.js";
+import { formatDayMonthSpanish } from "./paths.js";
 
 /**
  * Alineado con la guía OpenAI **Image generation** (GPT Image):
@@ -119,8 +119,6 @@ function buildImagePrompt(opts: {
   fraseMotivacional: string;
   today: Date;
 }): string {
-  const todayLabel = formatTodaySpanish(opts.today);
-  const grupoFecha = formatDayMonthSpanish(opts.today);
   const ejecucionId = Date.now();
   const estiloIdx =
     (ejecucionId + opts.people.length * 17 + opts.fraseMotivacional.length * 31) %
@@ -128,38 +126,51 @@ function buildImagePrompt(opts: {
   const direccionCreativa = ESTILOS_CREATIVOS[estiloIdx]!;
   const fraseEsc = opts.fraseMotivacional.replace(/"/g, "'").trim();
 
-  const listaLiteral = opts.people
-    .map((p, i) => `${i + 1}. ${p.nombre} — ${p.cargo}`)
+  const fechaLabel = formatDayMonthSpanish(opts.today);
+  const listaPersonas = opts.people
+    .map((p) => `- ${p.nombre} — ${p.cargo}`)
     .join("\n");
 
-  return `IMAGEN ÚNICA (obligatorio):
-Genera exactamente UNA sola tarjeta vertical de cumpleaños. Un solo lienzo. NO collage, NO mosaico, NO cuadrícula de varias tarjetas, NO plantillas múltiples, NO storyboard, NO hoja de contacto.
+  return `Crea una tarjeta corporativa premium de cumpleaños con diseño dinámico y adaptable.
 
-PRIORIDAD ABSOLUTA — TEXTO LEGIBLE:
-Los modelos de imagen fallan con texto pequeño o decorativo. Debes:
-- Copiar los nombres y cargos CARÁCTER POR CARÁCTER como en la lista "TEXTO LITERAL" de abajo (mismas mayúsculas/minúsculas y tildes).
-- Usar tipografía sans-serif MUY GRANDE para nombres y cargos (bloque central o inferior), alto contraste (ej. texto oscuro sobre fondo claro suave, o texto claro sobre banda oscura sólida).
-- Sin texto curvo, sin neón sobre letras, sin tipografía script para datos, sin texto sobre patrones recargados.
-- Título "¡Feliz Cumpleaños!" grande y claro. La frase motivacional en una o dos líneas, misma fuente simple y grande.
-- Máximo 2–3 líneas por persona (nombre y cargo). Si hay muchas personas, lista vertical ordenada, no microtexto.
+⚠️ IMAGEN ÚNICA OBLIGATORIA (ID: ${ejecucionId}):
+Genera exactamente UNA sola tarjeta vertical. Un solo lienzo. NO collage, NO mosaico, NO cuadrícula de varias tarjetas, NO storyboard.
 
-ESTILO (ejecución ${ejecucionId}, variar fondo y color pero sin sacrificar lectura):
-Dirección creativa del fondo y decoración: "${direccionCreativa}".
-La decoración festiva (confeti, luces, formas) solo en bordes o zonas SIN texto encima. El área del texto debe ser plana y limpia.
+⚠️ VARIACIÓN CREATIVA OBLIGATORIA:
+Usa una dirección creativa completamente diferente en cada ejecución. NO reutilizar la misma composición, distribución, colores, fondos ni decoración.
+Dirección creativa de esta ejecución: "${direccionCreativa}".
 
-CONTENIDO OBLIGATORIO:
-- Fecha del día (español): ${todayLabel}
-- Grupo del día: ${grupoFecha}
+OBJETIVO:
+Tarjeta institucional de cumpleaños donde los empleados estén agrupados correctamente según su fecha. La IA organiza la información de forma limpia, elegante y fácil de leer.
 
-TEXTO LITERAL (copiar exactamente en la imagen, sin inventar ni traducir):
-${listaLiteral}
+ADAPTACIÓN AUTOMÁTICA DEL DISEÑO según cantidad de personas:
+- Pocas personas (1–2): diseño más visual y protagonista, nombres grandes y centrales.
+- Varias personas (3+): grid elegante, tarjetas internas o columnas balanceadas, excelente aprovechamiento del espacio.
 
-FRASE MOTIVACIONAL (una sola, copiar exactamente):
+VARIACIÓN DINÁMICA (cambiar entre ejecuciones):
+- Paleta de colores, tipografía, fondos, estilo gráfico, decoración, distribución, elementos festivos, iluminación.
+- Variar entre: Luxury corporate, Modern corporate, Futurista tecnológico, Minimalista elegante, Dark premium, Glassmorphism, Abstracto ejecutivo, Neón elegante, 3D corporativo, Diseño creativo empresarial.
+
+ELEMENTOS VISUALES FESTIVOS (usar de forma aleatoria y elegante):
+Globos, confeti, luces, regalos, pasteles, chispas, elementos abstractos, formas geométricas, decoraciones tecnológicas, detalles metálicos, iluminación cinematográfica.
+La decoración festiva solo en bordes o zonas SIN texto encima. El área del texto debe ser plana y limpia.
+
+TEXTO PRINCIPAL:
+- Título: "¡Feliz Cumpleaños!"
+- Subtítulo opcional: "Celebramos este día especial junto a nuestro equipo"
+
+TEXTO LITERAL — copiar carácter por carácter en la imagen (mismas mayúsculas, minúsculas y tildes):
+${fechaLabel}
+${listaPersonas}
+
+FRASE MOTIVACIONAL (copiar exactamente, una sola):
 "${fraseEsc}"
 
-FORMATO:
-Tarjeta vertical 9:16, diseño corporativo limpio y profesional, buena iluminación, nitidez en el texto.
+CALIDAD VISUAL:
+Tarjeta institucional premium, diseño corporativo moderno, composición profesional, excelente legibilidad, elegante y emotiva, ultra detallada, iluminación cinematográfica, acabado profesional de alta calidad.
+Tipografía sans-serif grande para nombres y cargos, alto contraste. Sin texto curvo, sin script para datos.
 
+FORMATO: Tarjeta vertical 9:16, resolución 4K, premium corporate birthday card, modern typography, elegant celebration design.
 NO incluir logos de terceros. Solo español en los textos visibles.`;
 }
 

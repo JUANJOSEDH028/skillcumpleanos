@@ -6,3 +6,6 @@ dist/
 
 # Salidas locales del script test-openai.mjs
 test-output*.png
+
+# Config local de Claude Code / Cursor
+.claude/
