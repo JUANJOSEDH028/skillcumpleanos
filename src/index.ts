@@ -13,8 +13,26 @@ import type { TipoTarjeta, DatosTarjetaCorporativa } from "./card-types.js";
 
 const INSTRUCTIONS = `Skill de tarjetas corporativas con IA. Tienes tres herramientas:
 
-── HERRAMIENTA 1 y 2: CUMPLEAÑOS (requiere archivo Excel) ──
-Usa obtener_cumpleaneros_hoy + generar_tarjeta_cumpleanos SOLO cuando el usuario pida tarjetas de cumpleaños y proporcione la ruta de un archivo .xlsx.
+── HERRAMIENTA 1: OBTENER CUMPLEAÑEROS DESDE EXCEL ──
+Usa obtener_cumpleaneros_hoy SOLO cuando el usuario proporcione explícitamente la ruta de un archivo .xlsx.
+NO pidas Excel si el usuario ya te dio los nombres y cargos.
+
+── HERRAMIENTA 2: GENERAR TARJETA DE CUMPLEAÑOS ──
+Usa generar_tarjeta_cumpleanos para crear tarjetas de cumpleaños. Hay DOS modos:
+
+Modo A — El usuario da los datos directamente (nombre y cargo):
+  NO pidas ningún archivo. Extrae los cumpleañeros del mensaje del usuario.
+  Requiere al menos: nombre y cargo de cada persona.
+  Flujo:
+  1. Extrae del mensaje la lista de personas (nombre + cargo).
+  2. Redacta una frase_motivacional en español (máx. 2 líneas).
+  3. Llama generar_tarjeta_cumpleanos con cumpleaneros=[{nombre,cargo},...] y frase_motivacional.
+
+Modo B — El usuario proporciona un archivo Excel:
+  Primero llama obtener_cumpleaneros_hoy para leer el Excel.
+  Luego llama generar_tarjeta_cumpleanos con archivo y frase_motivacional.
+
+REGLA IMPORTANTE: Si el usuario menciona nombres y cargos sin dar un archivo Excel, usa el Modo A directamente. NUNCA pidas Excel si el usuario ya te dio los datos de las personas.
 
 ── HERRAMIENTA 3: TARJETAS CORPORATIVAS (NO requiere Excel, NO pidas archivo) ──
 Usa generar_tarjeta_corporativa para: aniversario laboral, reconocimiento/logro/ascenso, invitación a evento, descuento/promoción.
@@ -108,28 +126,57 @@ server.registerTool(
   "generar_tarjeta_cumpleanos",
   {
     description:
-      "Genera la imagen PNG de la tarjeta con OpenAI (DALL·E / imágenes), la guarda en la carpeta cumpleanos del usuario y devuelve la imagen para el chat.",
+      "Genera la imagen PNG de la tarjeta de cumpleaños con OpenAI, la guarda en la carpeta cumpleanos del usuario y devuelve la imagen para el chat. " +
+      "Acepta los cumpleañeros de DOS formas: (A) lista directa con cumpleaneros=[{nombre,cargo},...] sin necesidad de Excel, " +
+      "o (B) ruta de archivo Excel con archivo=... para leer automáticamente quién cumple años hoy.",
     inputSchema: {
-      archivo: z.string().describe("Misma ruta .xlsx usada en obtener_cumpleaneros_hoy"),
       frase_motivacional: z
         .string()
         .describe("Frase en español (máx. 2 líneas) redactada por Claude para la tarjeta"),
+      cumpleaneros: z
+        .array(
+          z.object({
+            nombre: z.string().min(1).describe("Nombre completo de la persona"),
+            cargo: z.string().min(1).describe("Cargo o posición de la persona"),
+          }),
+        )
+        .min(1)
+        .optional()
+        .describe(
+          "Lista de cumpleañeros con nombre y cargo. Usar cuando el usuario proporciona los datos directamente sin Excel.",
+        ),
+      archivo: z
+        .string()
+        .optional()
+        .describe("Ruta al archivo .xlsx (solo si el usuario proporciona un Excel). Alternativa a cumpleaneros."),
     },
   },
-  async ({ archivo, frase_motivacional }) => {
-    const result = await readCumpleanerosHoy(archivo);
-    if (!result.ok) {
-      return {
-        content: [{ type: "text", text: result.error }],
-        isError: true,
-      };
-    }
-    if (result.cumpleaneros.length === 0) {
+  async ({ archivo, cumpleaneros: cumpleanerosDirect, frase_motivacional }) => {
+    let personas: import("./excel.js").Cumpleanero[];
+
+    if (cumpleanerosDirect && cumpleanerosDirect.length > 0) {
+      personas = cumpleanerosDirect.map((p) => ({ nombre: p.nombre.trim(), cargo: p.cargo.trim() }));
+    } else if (archivo) {
+      const result = await readCumpleanerosHoy(archivo);
+      if (!result.ok) {
+        return {
+          content: [{ type: "text", text: result.error }],
+          isError: true,
+        };
+      }
+      if (result.cumpleaneros.length === 0) {
+        return {
+          content: [{ type: "text", text: "No hay cumpleañeros hoy en el Excel; no se generó imagen." }],
+          isError: true,
+        };
+      }
+      personas = result.cumpleaneros;
+    } else {
       return {
         content: [
           {
             type: "text",
-            text: "No hay cumpleañeros hoy; no se generó imagen.",
+            text: "Debes proporcionar cumpleaneros=[{nombre,cargo},...] o la ruta de un archivo Excel.",
           },
         ],
         isError: true,
@@ -140,7 +187,7 @@ server.registerTool(
     let image;
     try {
       image = await generateBirthdayCardImage({
-        people: result.cumpleaneros,
+        people: personas,
         fraseMotivacional: frase_motivacional.trim(),
         today,
       });
@@ -165,7 +212,7 @@ server.registerTool(
       try {
         await sendBirthdayEmail({
           config: emailCfg,
-          people: result.cumpleaneros,
+          people: personas,
           fraseMotivacional: frase_motivacional.trim(),
           imageBase64: image.base64,
           imageMimeType: image.mimeType,
@@ -179,7 +226,7 @@ server.registerTool(
       }
     }
 
-    const nombres = result.cumpleaneros.map((c) => c.nombre).join(", ");
+    const nombres = personas.map((c) => c.nombre).join(", ");
     const summary = [
       `Cumpleañeros: ${nombres}`,
       `Imagen guardada en: ${fullPath}`,
