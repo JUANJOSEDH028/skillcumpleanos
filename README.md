@@ -30,6 +30,7 @@ El prompt prioriza **texto legible**. OpenAI indica que prompts complejos pueden
 "skillcumpleanos": {
   "command": "npx",
   "args": ["-y", "github:JUANJOSEDH028/skillcumpleanos"],
+  "timeout": 600000,
   "env": {
     "OPENAI_API_KEY": "PEGA_AQUI_TU_API_KEY",
     "CUMPLEANOS_TZ": "America/Bogota"
@@ -49,6 +50,7 @@ El prompt prioriza **texto legible**. OpenAI indica que prompts complejos pueden
     "skillcumpleanos": {
       "command": "npx",
       "args": ["-y", "github:JUANJOSEDH028/skillcumpleanos"],
+      "timeout": 600000,
       "env": {
         "OPENAI_API_KEY": "PEGA_AQUI_TU_API_KEY",
         "CUMPLEANOS_TZ": "America/Bogota"
@@ -57,6 +59,8 @@ El prompt prioriza **texto legible**. OpenAI indica que prompts complejos pueden
   }
 }
 ```
+
+`timeout` está en milisegundos (600000 = 10 min); en algunas apps no alarga el RPC de herramientas. Si ves `-32001`, añade en `env` por ejemplo `OPENAI_IMAGE_QUALITY`=`low` y `OPENAI_IMAGE_SIZE`=`1024x1024` (ver sección Timeouts).
 
 ## Excel esperado
 
