@@ -20,6 +20,14 @@ export function resolveEmailConfig(): EmailConfig | null {
   return { tenantId, clientId, clientSecret, senderEmail, toEmail };
 }
 
+/** Split `MS_TO_EMAIL` on comma/semicolon; trims each part. */
+export function parseToRecipients(toEmail: string): string[] {
+  return toEmail
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function buildEmailHtml(opts: {
   people: Cumpleanero[];
   fraseMotivacional: string;
@@ -110,6 +118,11 @@ export async function sendBirthdayEmail(opts: {
   const fechaLabel = formatDayMonthSpanish(opts.today);
   const nombresCortos = opts.people.map((p) => p.nombre).join(", ");
 
+  const toAddresses = parseToRecipients(config.toEmail);
+  if (toAddresses.length === 0) {
+    throw new Error("MS_TO_EMAIL no contiene ninguna dirección válida.");
+  }
+
   const payload = {
     message: {
       subject: `🎂 ¡Feliz Cumpleaños! — ${fechaLabel} · ${nombresCortos}`,
@@ -121,7 +134,9 @@ export async function sendBirthdayEmail(opts: {
           today: opts.today,
         }),
       },
-      toRecipients: [{ emailAddress: { address: config.toEmail } }],
+      toRecipients: toAddresses.map((address) => ({
+        emailAddress: { address },
+      })),
       attachments: [
         {
           "@odata.type": "#microsoft.graph.fileAttachment",
